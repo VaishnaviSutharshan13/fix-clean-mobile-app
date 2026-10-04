@@ -1,14 +1,15 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Redirect } from 'expo-router';
 
-// Placeholder screen — real UI will be implemented in a later milestone.
+import Loading from '../components/Loading';
+import { useAuth } from '../hooks/useAuth';
+import { getHomeRouteForRole } from '../utils/helpers';
+
+// Entry point: signed-in users go to their role's home, everyone else to the
+// Customer Login screen (the prototype's starting screen).
 export default function Index() {
-  return (
-    <View style={styles.container}>
-      <Text>FIX & CLEAN CO.</Text>
-    </View>
-  );
-}
+  const { isLoading, isAuthenticated, role } = useAuth();
 
-const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-});
+  if (isLoading) return <Loading />;
+  if (isAuthenticated && role) return <Redirect href={getHomeRouteForRole(role)} />;
+  return <Redirect href="/auth/customer-login" />;
+}

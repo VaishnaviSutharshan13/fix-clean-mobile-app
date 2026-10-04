@@ -1,6 +1,16 @@
-import { Stack } from 'expo-router';
+import { Redirect, Stack } from 'expo-router';
 
-// Customer route group layout. Role-based guarding will be added with JWT auth later.
+import Loading from '../../components/Loading';
+import { useAuth } from '../../hooks/useAuth';
+import { getHomeRouteForRole } from '../../utils/helpers';
+
+// Only signed-in users with the "customer" role may enter this route group.
 export default function CustomerLayout() {
-  return <Stack />;
+  const { isLoading, isAuthenticated, role } = useAuth();
+
+  if (isLoading) return <Loading />;
+  if (!isAuthenticated || !role) return <Redirect href="/" />;
+  if (role !== 'customer') return <Redirect href={getHomeRouteForRole(role)} />;
+
+  return <Stack screenOptions={{ headerShown: false }} />;
 }
