@@ -7,6 +7,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { randomInt } from 'node:crypto';
 import { Model, mongo, Types } from 'mongoose';
+import { availabilityProblem, normalizeAvailability } from '../providers/availability.js';
 import { ProvidersService } from '../providers/providers.service.js';
 import { ProviderProfileDocument } from '../providers/schemas/provider-profile.schema.js';
 import { validateSchedule } from './booking-dates.js';
@@ -54,6 +55,7 @@ export class BookingsService {
 
     const service = this.findService(profile, dto.serviceId);
     this.assertSchedule(dto.scheduledDate, dto.timeSlot);
+    this.assertProviderAvailable(profile, dto.scheduledDate, dto.timeSlot);
 
     const now = new Date();
     const customer = new Types.ObjectId(customerId);
@@ -137,7 +139,11 @@ export class BookingsService {
 
     const date = dto.scheduledDate ?? booking.scheduledDate;
     const slot = (dto.timeSlot ?? booking.timeSlot) as TimeSlot;
-    if (dto.scheduledDate || dto.timeSlot) this.assertSchedule(date, slot);
+    if (dto.scheduledDate || dto.timeSlot) {
+      this.assertSchedule(date, slot);
+      const current = await this.providersService.findVerifiedProfile(String(booking.provider));
+      if (current) this.assertProviderAvailable(current, date, slot);
+    }
 
     if (dto.serviceId) {
       const profile = await this.providersService.findVerifiedProfile(String(booking.provider));
@@ -205,6 +211,12 @@ export class BookingsService {
       throw new BadRequestException('The selected service is not offered by this provider');
     }
     return service;
+  }
+
+  // FR5: respect the provider's duty status, working days and shift windows.
+  private assertProviderAvailable(profile: ProviderProfileDocument, date: string, slot: string): void {
+    const problem = availabilityProblem(normalizeAvailability(profile.availability), date, slot);
+    if (problem) throw new ConflictException(problem);
   }
 
   private assertSchedule(date: string, slot: TimeSlot): void {
