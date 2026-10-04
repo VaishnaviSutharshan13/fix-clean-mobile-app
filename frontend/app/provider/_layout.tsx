@@ -9,8 +9,9 @@ export default function ProviderLayout() {
   const { isLoading, isAuthenticated, role } = useAuth();
 
   if (isLoading) return <Loading />;
-  if (!isAuthenticated || !role) return <Redirect href="/" />;
+  // Signed out (e.g. after Sign out) → back to the Provider Login screen.
+  if (!isAuthenticated || !role) return <Redirect href="/auth/provider-login" />;
   if (role !== 'provider') return <Redirect href={getHomeRouteForRole(role)} />;
 
-  return <Stack />;
+  return <Stack screenOptions={{ headerShown: false }} />;
 }
