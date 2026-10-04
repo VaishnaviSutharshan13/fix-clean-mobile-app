@@ -5,10 +5,13 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcrypt';
+import { Types } from 'mongoose';
+import { ProvidersService } from '../providers/providers.service.js';
 import { Role, UserDocument } from '../users/schemas/user.schema.js';
 import { UsersService } from '../users/users.service.js';
 import { AuthResponse, JwtPayload, toAuthUser } from './auth.types.js';
 import { LoginDto } from './dto/login.dto.js';
+import { RegisterProviderDto } from './dto/register-provider.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 
 const BCRYPT_SALT_ROUNDS = 12;
@@ -22,6 +25,7 @@ export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly providersService: ProvidersService,
   ) {}
 
   // Only customers and providers can self-register; admins are never created here.
@@ -43,6 +47,25 @@ export class AuthService {
     });
 
     return this.buildAuthResponse(user);
+  }
+
+  // Provider Sign Up: creates the provider account and its linked profile.
+  async registerProvider(dto: RegisterProviderDto): Promise<AuthResponse> {
+    const response = await this.register(dto, Role.Provider);
+    const userId = new Types.ObjectId(response.user.id);
+    try {
+      await this.providersService.createForNewProvider({
+        userId,
+        category: dto.category,
+        serviceArea: dto.serviceArea,
+        experienceYears: dto.experienceYears,
+      });
+    } catch (error) {
+      // Don't leave an account without a profile behind.
+      await this.usersService.deleteById(userId);
+      throw error;
+    }
+    return response;
   }
 
   async login(dto: LoginDto): Promise<AuthResponse> {

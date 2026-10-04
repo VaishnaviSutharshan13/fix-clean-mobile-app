@@ -1,6 +1,6 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, mongo } from 'mongoose';
+import { Model, mongo, Types } from 'mongoose';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { User, UserDocument } from './schemas/user.schema.js';
 
@@ -24,6 +24,10 @@ export class UsersService {
       }
       throw error;
     }
+  }
+
+  async deleteById(id: Types.ObjectId | string): Promise<void> {
+    await this.userModel.deleteOne({ _id: id }).exec();
   }
 
   findById(id: string): Promise<UserDocument | null> {
