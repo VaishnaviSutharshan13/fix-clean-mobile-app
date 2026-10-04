@@ -45,6 +45,10 @@ const provider = {
   email: 'kamal.provider@example.com',
   phone: '+94712345678',
   password: 'Provider123',
+  // Provider Sign Up also collects trade, district and experience.
+  category: 'plumbing',
+  serviceArea: 'Colombo',
+  experienceYears: 5,
 };
 const admin = { email: 'admin@example.com', password: 'AdminPass123' };
 
@@ -125,7 +129,7 @@ describe('Auth (e2e)', () => {
     it('rejects a duplicate email (case-insensitive) with 409', async () => {
       const res = await request(app.getHttpServer())
         .post('/auth/register/provider')
-        .send({ ...customer, email: 'NIMAL@example.com' })
+        .send({ ...provider, email: 'NIMAL@example.com' })
         .expect(409);
       expect(res.body.message).toBe('An account with this email already exists');
     });
