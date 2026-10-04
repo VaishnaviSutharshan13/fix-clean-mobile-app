@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
+import { TIME_SLOTS } from '../../bookings/booking-status.js';
 import { User } from '../../users/schemas/user.schema.js';
 
 export enum ServiceCategory {
@@ -48,6 +49,27 @@ export class VerificationChecks {
 
 export const VerificationChecksSchema = SchemaFactory.createForClass(VerificationChecks);
 
+// Days of the week, 0 = Sunday … 6 = Saturday (JavaScript getUTCDay()).
+export const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
+
+// FR5: provider-managed availability. Defaults mean "available any time", so
+// providers created before this field existed keep accepting bookings.
+@Schema({ _id: false })
+export class Availability {
+  // Duty status: when false, the provider accepts no new bookings.
+  @Prop({ type: Boolean, default: true })
+  isAvailable: boolean;
+
+  @Prop({ type: [Number], default: () => [...ALL_WEEKDAYS] })
+  workingDays: number[];
+
+  // Customer arrival windows (from TIME_SLOTS) the provider works.
+  @Prop({ type: [String], enum: TIME_SLOTS, default: () => [...TIME_SLOTS] })
+  timeSlots: string[];
+}
+
+export const AvailabilitySchema = SchemaFactory.createForClass(Availability);
+
 // Professional details of a service provider. The account itself (name, email,
 // phone, password) lives in the User collection; this document extends it.
 @Schema({ timestamps: true, collection: PROVIDER_PROFILES_COLLECTION })
@@ -91,6 +113,12 @@ export class ProviderProfile {
 
   @Prop({ type: Date })
   verifiedAt?: Date;
+
+  @Prop({ type: AvailabilitySchema, default: () => ({}) })
+  availability: Availability;
+
+  @Prop({ type: Date })
+  availabilityUpdatedAt?: Date;
 
   createdAt: Date;
   updatedAt: Date;

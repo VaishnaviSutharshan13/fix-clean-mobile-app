@@ -1,4 +1,5 @@
 import type { ReviewView } from '../reviews/reviews.types.js';
+import type { AvailabilityView } from './availability.js';
 import type { ServiceCategory, VerificationStatus } from './schemas/provider-profile.schema.js';
 
 export interface VerificationChecksView {
@@ -22,6 +23,8 @@ export interface ProviderSummary {
   completedJobs: number;
   verificationStatus: VerificationStatus;
   verificationChecks: VerificationChecksView;
+  // Duty status (FR5); off-duty providers can't be booked.
+  isAvailable: boolean;
 }
 
 export interface ProviderServiceView {
@@ -38,6 +41,26 @@ export interface ProviderDetails extends ProviderSummary {
   priceRange: { min: number; max: number };
   recentReviews: ReviewView[];
   memberSince: Date;
+  availability: AvailabilityView;
+}
+
+// The signed-in provider's own account (Provider Dashboard / Manage Availability).
+export interface ProviderAccountView {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  category: ServiceCategory;
+  headline: string;
+  serviceArea: string;
+  experienceYears: number;
+  verificationStatus: VerificationStatus;
+  verificationChecks: VerificationChecksView;
+  servicesCount: number;
+  services: ProviderServiceView[];
+  visitFee: number;
+  availability: AvailabilityView;
+  availabilityUpdatedAt: Date | null;
 }
 
 export interface CategorySummary {
