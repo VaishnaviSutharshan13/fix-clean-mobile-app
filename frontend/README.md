@@ -41,3 +41,13 @@ development builds use the IP of the computer running Expo/Metro with port
 
 Demo accounts and the status-simulation tool are documented in
 `backend/README.md`.
+
+## Testing status
+
+- Unit tests: `yarn test` (pure logic in `utils/`).
+- The Customer and Provider screens have been tested in the Expo **web** app at mobile
+  viewport sizes (412×915 and 360×780), including the live Customer ↔ Provider flow.
+- **Android Provider UI testing has not been completed yet** because the Android emulator
+  on the development machine was unstable; responsive mobile web testing was used instead.
+- The provider lifecycle (sign up → pending → services & rates → admin verification →
+  bookable) is documented in `backend/README.md`.

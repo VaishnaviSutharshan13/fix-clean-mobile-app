@@ -3,6 +3,8 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ProvidersModule } from '../providers/providers.module.js';
 import { BookingsController } from './bookings.controller.js';
 import { BookingsService } from './bookings.service.js';
+import { ProviderBookingsController } from './provider-bookings.controller.js';
+import { ProviderBookingsService } from './provider-bookings.service.js';
 import { Booking, BookingSchema } from './schemas/booking.schema.js';
 
 @Module({
@@ -10,8 +12,8 @@ import { Booking, BookingSchema } from './schemas/booking.schema.js';
     MongooseModule.forFeature([{ name: Booking.name, schema: BookingSchema }]),
     ProvidersModule,
   ],
-  controllers: [BookingsController],
-  providers: [BookingsService],
+  controllers: [BookingsController, ProviderBookingsController],
+  providers: [BookingsService, ProviderBookingsService],
   exports: [BookingsService],
 })
 export class BookingsModule {}

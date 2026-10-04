@@ -21,6 +21,7 @@ export interface Provider {
   completedJobs: number;
   verificationStatus: VerificationStatus;
   verificationChecks: VerificationChecks;
+  isAvailable: boolean;
 }
 
 export interface ProviderServiceItem {
@@ -44,6 +45,7 @@ export interface ProviderDetails extends Provider {
   priceRange: { min: number; max: number };
   recentReviews: Review[];
   memberSince: string;
+  availability: Availability;
 }
 
 export interface CategorySummary {
@@ -53,3 +55,29 @@ export interface CategorySummary {
 }
 
 export type ProviderSort = 'rating' | 'price' | 'experience';
+
+export interface Availability {
+  isAvailable: boolean;
+  // 0 = Sunday … 6 = Saturday
+  workingDays: number[];
+  timeSlots: string[];
+}
+
+// The signed-in provider's own account (GET /provider/me).
+export interface ProviderAccount {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  category: ServiceCategory;
+  headline: string;
+  serviceArea: string;
+  experienceYears: number;
+  verificationStatus: VerificationStatus;
+  verificationChecks: VerificationChecks;
+  servicesCount: number;
+  services: ProviderServiceItem[];
+  visitFee: number;
+  availability: Availability;
+  availabilityUpdatedAt: string | null;
+}

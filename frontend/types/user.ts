@@ -21,6 +21,13 @@ export interface RegisterPayload {
   password: string;
 }
 
+// Provider Sign Up adds trade, operating district and experience.
+export interface RegisterProviderPayload extends RegisterPayload {
+  category: 'plumbing' | 'electrical' | 'cleaning';
+  serviceArea: string;
+  experienceYears: number;
+}
+
 export interface AuthResponse {
   accessToken: string;
   user: User;

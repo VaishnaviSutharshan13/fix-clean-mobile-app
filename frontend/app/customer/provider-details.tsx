@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Avatar from '../../components/Avatar';
 import Button from '../../components/Button';
 import Card from '../../components/Card';
+import FormMessage from '../../components/FormMessage';
 import Header from '../../components/Header';
 import Loading from '../../components/Loading';
 import Rating, { Stars } from '../../components/Rating';
@@ -92,11 +93,15 @@ export default function ProviderDetails() {
           title="BOOK NOW"
           icon="arrow-forward"
           onPress={handleBook}
-          disabled={provider.services.length === 0}
+          disabled={provider.services.length === 0 || !provider.availability.isAvailable}
           accessibilityHint="Opens the booking form for the selected service"
         />
       }
     >
+      {!provider.availability.isAvailable ? (
+        <FormMessage message={`${provider.name} is not accepting new bookings right now.`} />
+      ) : null}
+
       {/* Identity */}
       <Card>
         <View style={styles.identity}>

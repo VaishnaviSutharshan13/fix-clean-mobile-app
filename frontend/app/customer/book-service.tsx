@@ -115,11 +115,25 @@ export default function BookService() {
   const total = (service?.price ?? 0) + provider.visitFee;
 
   const isSlotPast = (s: TimeSlot) => date === today.date && Number(s.slice(0, 2)) <= today.hour;
+  // FR5: only the provider's working days and shift windows can be booked.
+  const availability = provider.availability;
+  const weekdayOf = (iso: string) => {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(Date.UTC(y!, m! - 1, d!)).getUTCDay();
+  };
+  const isDayOff = (iso: string) => !availability.workingDays.includes(weekdayOf(iso));
+  const isSlotOff = (s: TimeSlot) => !availability.timeSlots.includes(s);
 
   const validate = (): FieldErrors => ({
     service: service ? undefined : 'Please choose a service',
     date: date ? undefined : 'Please choose a date',
-    slot: !slot ? 'Please choose a time window' : isSlotPast(slot) ? 'That time window has already started' : undefined,
+    slot: !slot
+      ? 'Please choose a time window'
+      : isSlotPast(slot)
+        ? 'That time window has already started'
+        : isSlotOff(slot)
+          ? "The provider doesn't work in that time window"
+          : undefined,
     street: street.trim() ? undefined : 'Street address is required',
     city: city.trim() ? undefined : 'City is required',
     problem: problem.trim() ? undefined : 'Please describe the problem',
@@ -198,6 +212,12 @@ export default function BookService() {
 
       {formError ? <FormMessage message={formError} /> : null}
 
+      {!availability.isAvailable ? (
+        <FormMessage message="This provider is not accepting new bookings right now. Please choose another provider." />
+      ) : availability.workingDays.length < 7 || availability.timeSlots.length < TIME_SLOTS.length ? (
+        <FormMessage tone="info" message="Days and arrival windows the provider doesn't work are greyed out." />
+      ) : null}
+
       {/* 1. Service */}
       <Card title="1. Service">
         {provider.services.map((s) => {
@@ -235,6 +255,7 @@ export default function BookService() {
               key={d}
               label={dayChipLabel(d, index)}
               selected={date === d}
+              disabled={isDayOff(d)}
               onPress={() => {
                 setDate(d);
                 clear('date');
@@ -252,7 +273,7 @@ export default function BookService() {
               key={s}
               label={formatTimeSlot(s)}
               selected={slot === s}
-              disabled={isSlotPast(s)}
+              disabled={isSlotPast(s) || isSlotOff(s)}
               onPress={() => {
                 setSlot(s);
                 clear('slot');

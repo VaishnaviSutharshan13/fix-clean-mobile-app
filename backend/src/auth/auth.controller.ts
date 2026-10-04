@@ -4,6 +4,7 @@ import { AuthService } from './auth.service.js';
 import type { AuthResponse, AuthUser } from './auth.types.js';
 import { CurrentUser } from './current-user.decorator.js';
 import { LoginDto } from './dto/login.dto.js';
+import { RegisterProviderDto } from './dto/register-provider.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { JwtAuthGuard } from './jwt.guard.js';
 
@@ -17,8 +18,8 @@ export class AuthController {
   }
 
   @Post('register/provider')
-  registerProvider(@Body() dto: RegisterDto): Promise<AuthResponse> {
-    return this.authService.register(dto, Role.Provider);
+  registerProvider(@Body() dto: RegisterProviderDto): Promise<AuthResponse> {
+    return this.authService.registerProvider(dto);
   }
 
   @Post('login')
