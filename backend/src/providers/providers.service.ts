@@ -1,13 +1,18 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, PipelineStage, Types } from 'mongoose';
 import { BookingStatus } from '../bookings/booking-status.js';
 import { BOOKINGS_COLLECTION } from '../bookings/schemas/booking.schema.js';
 import { REVIEWS_COLLECTION } from '../reviews/schemas/review.schema.js';
 import { ReviewsService } from '../reviews/reviews.service.js';
+import type { AuthUser } from '../auth/auth.types.js';
+import { normalizeAvailability } from './availability.js';
+import { UpdateAvailabilityDto } from './dto/update-availability.dto.js';
+import { UpdateServicesDto } from './dto/update-services.dto.js';
 import { ProviderSort } from './dto/list-providers-query.dto.js';
 import {
   CategorySummary,
+  ProviderAccountView,
   ProviderDetails,
   ProviderSummary,
 } from './providers.types.js';
@@ -31,6 +36,13 @@ const SORT_STAGES: Record<ProviderSort, Record<string, 1 | -1>> = {
   experience: { experienceYears: -1, ratingAverage: -1, _id: 1 },
 };
 
+// Customers only see providers an administrator has verified AND who offer at
+// least one service (otherwise there would be nothing to book).
+const CUSTOMER_VISIBLE = {
+  verificationStatus: VerificationStatus.Verified,
+  'services.0': { $exists: true },
+};
+
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -46,7 +58,7 @@ export class ProvidersService {
   // Verified providers with live rating/review/job statistics computed from the
   // reviews and bookings collections (never stored as fixed numbers).
   async listVerified(options: ListOptions = {}): Promise<ProviderSummary[]> {
-    const match: Record<string, unknown> = { verificationStatus: VerificationStatus.Verified };
+    const match: Record<string, unknown> = { ...CUSTOMER_VISIBLE };
     if (options.category) match.category = options.category;
 
     const pipeline: PipelineStage[] = [
@@ -82,7 +94,7 @@ export class ProvidersService {
   async getCategories(): Promise<CategorySummary[]> {
     const rows = await this.profileModel
       .aggregate<{ _id: ServiceCategory; providerCount: number; startingPrice: number | null }>([
-        { $match: { verificationStatus: VerificationStatus.Verified } },
+        { $match: CUSTOMER_VISIBLE },
         {
           $group: {
             _id: '$category',
@@ -108,10 +120,7 @@ export class ProvidersService {
     const [row] = await this.profileModel
       .aggregate<AggregatedProvider>([
         {
-          $match: {
-            user: new Types.ObjectId(providerUserId),
-            verificationStatus: VerificationStatus.Verified,
-          },
+          $match: { user: new Types.ObjectId(providerUserId), ...CUSTOMER_VISIBLE },
         },
         ...this.joinUserStages(),
         ...this.statsStages(),
@@ -140,16 +149,91 @@ export class ProvidersService {
       },
       recentReviews: reviews.items,
       memberSince: row.createdAt,
+      availability: normalizeAvailability(row.availability),
     };
+  }
+
+  async getAccount(user: AuthUser): Promise<ProviderAccountView> {
+    const profile = await this.profileModel.findOne({ user: new Types.ObjectId(user.id) }).exec();
+    if (!profile) throw new NotFoundException('Provider profile not found');
+    return toAccountView(user, profile);
+  }
+
+  // Services & Rates: the provider proposes their services, prices and visiting
+  // fee. They are approved together with the profile during admin verification.
+  async updateServices(user: AuthUser, dto: UpdateServicesDto): Promise<ProviderAccountView> {
+    const profile = await this.profileModel.findOne({ user: new Types.ObjectId(user.id) }).exec();
+    if (!profile) throw new NotFoundException('Provider profile not found');
+
+    const names = dto.services.map((s) => s.name.toLowerCase());
+    if (new Set(names).size !== names.length) {
+      throw new BadRequestException('Each service must have a different name');
+    }
+
+    const existing = new Map(profile.services.map((s) => [String(s._id), s]));
+    for (const service of dto.services) {
+      if (service.id && !existing.has(service.id)) {
+        throw new BadRequestException('Unknown service');
+      }
+    }
+
+    profile.set(
+      'services',
+      dto.services.map((s) => ({
+        // Keep ids of edited services stable (bookings keep a snapshot anyway).
+        _id: s.id ? new Types.ObjectId(s.id) : new Types.ObjectId(),
+        name: s.name,
+        description: s.description ?? '',
+        price: s.price,
+      })),
+    );
+    profile.visitFee = dto.visitFee;
+    await profile.save();
+    return toAccountView(user, profile);
+  }
+
+  // FR5: persists the provider's availability.
+  async updateAvailability(user: AuthUser, dto: UpdateAvailabilityDto): Promise<ProviderAccountView> {
+    if (dto.isAvailable && (dto.workingDays.length === 0 || dto.timeSlots.length === 0)) {
+      throw new BadRequestException(
+        'Choose at least one working day and one shift window, or switch duty status off.',
+      );
+    }
+    const availability = normalizeAvailability(dto);
+    const profile = await this.profileModel
+      .findOneAndUpdate(
+        { user: new Types.ObjectId(user.id) },
+        { $set: { availability, availabilityUpdatedAt: new Date() } },
+        { new: true },
+      )
+      .exec();
+    if (!profile) throw new NotFoundException('Provider profile not found');
+    return toAccountView(user, profile);
+  }
+
+  // Creates the profile linked to a newly registered provider account.
+  // New providers start as "pending" until an administrator verifies them (FR7).
+  createForNewProvider(input: {
+    userId: Types.ObjectId;
+    category: ServiceCategory;
+    serviceArea: string;
+    experienceYears: number;
+  }): Promise<ProviderProfileDocument> {
+    const label = input.category.charAt(0).toUpperCase() + input.category.slice(1);
+    return this.profileModel.create({
+      user: input.userId,
+      category: input.category,
+      headline: `${label} Specialist`,
+      serviceArea: input.serviceArea,
+      experienceYears: input.experienceYears,
+      verificationStatus: VerificationStatus.Pending,
+    });
   }
 
   // Used by the bookings module to validate the provider being booked.
   findVerifiedProfile(providerUserId: string): Promise<ProviderProfileDocument | null> {
     return this.profileModel
-      .findOne({
-        user: new Types.ObjectId(providerUserId),
-        verificationStatus: VerificationStatus.Verified,
-      })
+      .findOne({ user: new Types.ObjectId(providerUserId), ...CUSTOMER_VISIBLE })
       .exec();
   }
 
@@ -232,5 +316,36 @@ function toSummary(row: AggregatedProvider): ProviderSummary {
       contact: !!row.verificationChecks?.contact,
       experience: !!row.verificationChecks?.experience,
     },
+    isAvailable: normalizeAvailability(row.availability).isAvailable,
+  };
+}
+
+function toAccountView(user: AuthUser, profile: ProviderProfileDocument): ProviderAccountView {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    phone: user.phone,
+    category: profile.category,
+    headline: profile.headline,
+    serviceArea: profile.serviceArea,
+    experienceYears: profile.experienceYears,
+    verificationStatus: profile.verificationStatus,
+    verificationChecks: {
+      identity: !!profile.verificationChecks?.identity,
+      contact: !!profile.verificationChecks?.contact,
+      experience: !!profile.verificationChecks?.experience,
+    },
+    servicesCount: profile.services.length,
+    services: profile.services.map((s) => ({
+      id: String(s._id),
+      name: s.name,
+      description: s.description,
+      price: s.price,
+    })),
+    visitFee: profile.visitFee,
+    availability: normalizeAvailability(profile.availability),
+    // null until the provider saves availability for the first time.
+    availabilityUpdatedAt: profile.availabilityUpdatedAt ?? null,
   };
 }
