@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# This project uses Yarn — keep yarn.lock, never commit npm lockfiles
+package-lock.json
+
+# Environment files (keep examples)
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Expo / React Native
+.expo/
+web-build/
+.metro-health-check*
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+frontend/ios/
+frontend/android/
+
+# Logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.log
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
