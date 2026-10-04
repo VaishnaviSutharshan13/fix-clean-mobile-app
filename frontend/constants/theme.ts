@@ -21,6 +21,14 @@ export const colors = {
   dangerSoft: '#FDECEC',
   star: '#F5A623',
   white: '#FFFFFF',
+  // Provider prototype (Figma) accents
+  slate: '#272F3F', // dark "Sign in as Pro" / "View Dispatch Route" buttons
+  lavender: '#EEF1FB', // light action buttons and info wells
+  lavenderStrong: '#DFE5F8',
+  duty: '#5FE3A9', // "ON DUTY" pill
+  dutyText: '#0B5D3B',
+  orange: '#F29D38',
+  orangeSoft: '#FCE3C4',
 };
 
 export const spacing = {
