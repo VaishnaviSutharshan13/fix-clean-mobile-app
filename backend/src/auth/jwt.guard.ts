@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 
-// Guard for JWT-protected routes. Not applied anywhere yet — it becomes
-// functional once JwtStrategy is implemented and registered.
+// Requires a valid "Authorization: Bearer <token>" header; sets request.user.
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {}
