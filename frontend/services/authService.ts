@@ -1,4 +1,4 @@
-import type { AuthResponse, LoginPayload, RegisterPayload, User } from '../types/user';
+import type { AuthResponse, LoginPayload, RegisterPayload, RegisterProviderPayload, User } from '../types/user';
 import { apiRequest } from './api';
 
 export const authService = {
@@ -10,7 +10,7 @@ export const authService = {
     return apiRequest<AuthResponse>('/auth/register/customer', { method: 'POST', body: payload });
   },
 
-  registerProvider(payload: RegisterPayload): Promise<AuthResponse> {
+  registerProvider(payload: RegisterProviderPayload): Promise<AuthResponse> {
     return apiRequest<AuthResponse>('/auth/register/provider', { method: 'POST', body: payload });
   },
 

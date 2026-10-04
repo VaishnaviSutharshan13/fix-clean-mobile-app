@@ -3,7 +3,25 @@ import { createContext, useCallback, useEffect, useMemo, useState, type ReactNod
 import { ApiError, setApiToken, setUnauthorizedHandler } from '../services/api';
 import { authService } from '../services/authService';
 import { tokenStorage } from '../services/tokenStorage';
-import type { AuthResponse, LoginPayload, RegisterPayload, User, UserRole } from '../types/user';
+import type {
+  AuthResponse,
+  LoginPayload,
+  RegisterPayload,
+  RegisterProviderPayload,
+  User,
+  UserRole,
+} from '../types/user';
+
+// Thrown by login() when the account exists but has a different role than the
+// login screen expects (e.g. a customer using Provider Login). No session is stored.
+export class RoleMismatchError extends Error {
+  constructor(public readonly actualRole: UserRole) {
+    super(`This account is registered as a ${actualRole}.`);
+    this.name = 'RoleMismatchError';
+  }
+}
+
+export type LoginOptions = { expectedRole?: UserRole };
 
 export type AuthContextValue = {
   user: User | null;
@@ -12,9 +30,9 @@ export type AuthContextValue = {
   isAuthenticated: boolean;
   // True while a stored session is being restored on app start.
   isLoading: boolean;
-  login: (payload: LoginPayload) => Promise<User>;
+  login: (payload: LoginPayload, options?: LoginOptions) => Promise<User>;
   registerCustomer: (payload: RegisterPayload) => Promise<User>;
-  registerProvider: (payload: RegisterPayload) => Promise<User>;
+  registerProvider: (payload: RegisterProviderPayload) => Promise<User>;
   logout: () => Promise<void>;
 };
 
@@ -65,7 +83,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(
-    async (payload: LoginPayload) => startSession(await authService.login(payload)),
+    async (payload: LoginPayload, options?: LoginOptions) => {
+      const response = await authService.login(payload);
+      if (options?.expectedRole && response.user.role !== options.expectedRole) {
+        throw new RoleMismatchError(response.user.role);
+      }
+      return startSession(response);
+    },
     [startSession],
   );
 
@@ -75,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const registerProvider = useCallback(
-    async (payload: RegisterPayload) => startSession(await authService.registerProvider(payload)),
+    async (payload: RegisterProviderPayload) => startSession(await authService.registerProvider(payload)),
     [startSession],
   );
 
