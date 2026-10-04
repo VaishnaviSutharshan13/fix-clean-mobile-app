@@ -20,7 +20,8 @@
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
-    "seed": "nest build && node dist/seed/seed-dev-data.js"
+    "seed": "nest build && node dist/seed/seed-dev-data.js",
+    "dev:booking-status": "nest build && node dist/dev-tools/simulate-booking-status.js"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

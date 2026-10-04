@@ -20,7 +20,7 @@ import { useAsync } from '../../hooks/useAsync';
 import { bookingService } from '../../services/bookingService';
 import { providerService } from '../../services/providerService';
 import { TIME_SLOTS, type TimeSlot } from '../../types/booking';
-import { addDays, formatTimeSlot, sriLankaToday } from '../../utils/display';
+import { addDays, formatBookingDate, formatTimeSlot, sriLankaToday } from '../../utils/display';
 import { formatLKR, getFriendlyErrorMessage } from '../../utils/helpers';
 
 const DAYS_SHOWN = 14;
@@ -31,13 +31,7 @@ type FieldErrors = Partial<Record<'service' | 'date' | 'slot' | 'street' | 'city
 function dayChipLabel(isoDate: string, index: number): string {
   if (index === 0) return 'Today';
   if (index === 1) return 'Tomorrow';
-  const [y, m, d] = isoDate.split('-').map(Number);
-  return new Date(Date.UTC(y!, m! - 1, d!)).toLocaleDateString('en-GB', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    timeZone: 'UTC',
-  });
+  return formatBookingDate(isoDate, false);
 }
 
 // Book Service (Milestone 02, Variant A): a single sequential form — service,

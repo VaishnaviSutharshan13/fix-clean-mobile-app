@@ -42,12 +42,7 @@ export function getFriendlyErrorMessage(error: unknown, overrides: ErrorMessages
   return 'Something went wrong. Please try again.';
 }
 
-const lkrFormatter = new Intl.NumberFormat('en-LK', { maximumFractionDigits: 0 });
-
-// Prices are shown in LKR as in the prototype, e.g. "Rs. 2,500".
-export function formatLKR(amount: number): string {
-  return `Rs. ${lkrFormatter.format(amount)}`;
-}
+export { formatLKR } from './money';
 
 export function getInitials(name: string): string {
   return name

@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
+import ArrivalCard from '../../components/ArrivalCard';
 import Avatar from '../../components/Avatar';
 import BookingSummary from '../../components/BookingSummary';
 import Button from '../../components/Button';
@@ -13,8 +14,10 @@ import Loading from '../../components/Loading';
 import Screen from '../../components/Screen';
 import StateView from '../../components/StateView';
 import StatusBadge from '../../components/StatusBadge';
+import StatusChangeBanner from '../../components/StatusChangeBanner';
 import { colors, radius, spacing } from '../../constants/theme';
 import { useAsync } from '../../hooks/useAsync';
+import { useBookingStatusNotice } from '../../hooks/useBookingStatusNotice';
 import { bookingService } from '../../services/bookingService';
 import type { Booking, BookingStatus } from '../../types/booking';
 import { confirmAction, formatBookingDate, formatDateTime, formatTimeSlot, STATUS_META } from '../../utils/display';
@@ -72,12 +75,23 @@ function Stepper({ booking }: { booking: Booking }) {
 
 // Track Booking (Milestone 02, Variant A): vertical progress stepper
 // Requested → Confirmed → On the Way → Completed (FR3). Refreshes
-// automatically while open so provider updates appear without user action.
+// automatically while open; status changes made by the provider trigger an
+// in-app notification and update the stepper immediately.
 export default function TrackBooking() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: booking, error, loading, refreshing, reload } = useAsync(() => bookingService.getMine(id), [id]);
   const [actionError, setActionError] = useState<string>();
+  const [actionSuccess, setActionSuccess] = useState<string>();
   const [cancelling, setCancelling] = useState(false);
+  // FR3: in-app notification when the provider changes the booking status.
+  const { notice, dismiss, markSeen } = useBookingStatusNotice(booking);
+
+  // The screen can be reused for another booking (e.g. a deep link): drop
+  // feedback messages that belonged to the previous one.
+  useEffect(() => {
+    setActionError(undefined);
+    setActionSuccess(undefined);
+  }, [id]);
 
   // Poll only while this screen is focused.
   useFocusEffect(
@@ -112,8 +126,12 @@ export default function TrackBooking() {
     if (!ok) return;
     setCancelling(true);
     setActionError(undefined);
+    setActionSuccess(undefined);
     try {
-      await bookingService.cancel(booking.id);
+      const updated = await bookingService.cancel(booking.id);
+      // The customer made this change, so don't raise a "status changed" notice for it.
+      markSeen(updated.id, updated.status);
+      setActionSuccess(`Booking ${updated.reference} has been cancelled.`);
       await reload(true);
     } catch (err) {
       setActionError(getFriendlyErrorMessage(err, { 409: 'This booking can no longer be cancelled.' }));
@@ -128,6 +146,8 @@ export default function TrackBooking() {
       header={<Header title="Track Booking" onBack={() => (router.canGoBack() ? router.back() : router.replace('/customer/home'))} />}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => reload(true)} />}
     >
+      {notice ? <StatusChangeBanner notice={notice} onDismiss={dismiss} /> : null}
+
       {/* Provider */}
       <Card>
         <View style={styles.providerRow}>
@@ -154,6 +174,7 @@ export default function TrackBooking() {
 
       {error ? <FormMessage message="Couldn't refresh the latest status. Pull down to try again." /> : null}
       {actionError ? <FormMessage message={actionError} /> : null}
+      {actionSuccess ? <FormMessage message={actionSuccess} tone="success" /> : null}
 
       {/* Status */}
       <Card
@@ -175,7 +196,10 @@ export default function TrackBooking() {
             <Button title="Find another provider" variant="secondary" onPress={() => router.replace('/customer/provider-list')} />
           </View>
         ) : (
-          <Stepper booking={booking} />
+          <>
+            <ArrivalCard booking={booking} />
+            <Stepper booking={booking} />
+          </>
         )}
         {!ended && booking.status !== 'completed' ? (
           <View style={styles.autoRefresh}>

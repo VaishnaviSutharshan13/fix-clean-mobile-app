@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import ArrivalCard from '../../components/ArrivalCard';
 import Avatar from '../../components/Avatar';
 import BookingSummary from '../../components/BookingSummary';
 import Button from '../../components/Button';
@@ -75,6 +76,9 @@ export default function BookingConfirmation() {
           <StatusBadge status={booking.status} />
         </View>
       </View>
+
+      {/* Variant B dispatch/arrival information, from the scheduled window. */}
+      <ArrivalCard booking={booking} />
 
       <Card title="Service receipt">
         <View style={styles.providerRow}>

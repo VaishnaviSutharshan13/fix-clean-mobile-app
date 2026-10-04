@@ -296,5 +296,51 @@ describe('Customer flow (e2e)', () => {
 
       await asCustomer(http.patch(`/bookings/me/${bookingId}/cancel`)).send({}).expect(409);
     });
+
+    // Provider-owned transitions (simulated here until the Provider module exists).
+    const setStatus = async (id: string, statuses: string[]) => {
+      await app.get<Model<Booking>>(getModelToken(Booking.name)).updateOne(
+        { _id: id },
+        {
+          status: statuses[statuses.length - 1],
+          $push: { statusHistory: { $each: statuses.map((s) => ({ status: s, changedAt: new Date() })) } },
+        },
+      );
+    };
+
+    it('shows a completed booking as finished: phone visible, no modify/cancel', async () => {
+      const created = await asCustomer(http.post('/bookings')).send(validBooking()).expect(201);
+      await setStatus(created.body.id, ['confirmed', 'on_the_way', 'completed']);
+
+      const res = await asCustomer(http.get(`/bookings/me/${created.body.id}`)).expect(200);
+      expect(res.body).toMatchObject({ status: 'completed', canModify: false, canCancel: false });
+      expect(res.body.provider.phone).toBe('0771234567');
+      expect(res.body.statusHistory.map((h: { status: string }) => h.status)).toEqual([
+        'requested',
+        'confirmed',
+        'on_the_way',
+        'completed',
+      ]);
+      await asCustomer(http.patch(`/bookings/me/${created.body.id}/cancel`)).send({}).expect(409);
+    });
+
+    it('shows a declined booking without provider contact details', async () => {
+      const created = await asCustomer(http.post('/bookings')).send(validBooking()).expect(201);
+      await setStatus(created.body.id, ['declined']);
+
+      const res = await asCustomer(http.get(`/bookings/me/${created.body.id}`)).expect(200);
+      expect(res.body).toMatchObject({ status: 'declined', canModify: false, canCancel: false });
+      expect(res.body.provider.phone).toBeUndefined();
+      await asCustomer(http.patch(`/bookings/me/${created.body.id}`)).send({ timeSlot: '08:00-10:00' }).expect(409);
+    });
+
+    it('gives customers no way to set provider statuses', async () => {
+      const created = await asCustomer(http.post('/bookings')).send(validBooking()).expect(201);
+      await asCustomer(http.patch(`/bookings/me/${created.body.id}`)).send({ status: 'completed' }).expect(400);
+      await asCustomer(http.patch(`/bookings/me/${created.body.id}/confirm`)).send({}).expect(404);
+      await asCustomer(http.patch(`/bookings/me/${created.body.id}/complete`)).send({}).expect(404);
+      const res = await asCustomer(http.get(`/bookings/me/${created.body.id}`)).expect(200);
+      expect(res.body.status).toBe('requested');
+    });
   });
 });

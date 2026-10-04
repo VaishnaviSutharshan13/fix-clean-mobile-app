@@ -4,15 +4,18 @@
  * Provider onboarding (Provider module) and verification (Admin module) are not
  * built yet, so this script inserts sample verified providers, plus a few past
  * completed bookings and reviews so FR1 (ratings/reviews) can be exercised.
- * Everything it creates uses an "@seed.fixclean.lk" email and is removed and
- * recreated on every run; no other data is touched.
+ * Seed accounts use "@seed.fixclean.lk" emails and fixed ids, and are updated
+ * in place on every run, so bookings that other customers made with a seed
+ * provider stay valid. Only the sample bookings ("FC-SEED…") and their reviews
+ * are deleted and recreated. No other data is touched.
  *
  * Run: yarn seed   (refuses to run when NODE_ENV=production)
  */
 import { NestFactory } from '@nestjs/core';
 import { getModelToken } from '@nestjs/mongoose';
 import bcrypt from 'bcrypt';
-import { Model } from 'mongoose';
+import { createHash } from 'node:crypto';
+import { Model, Types } from 'mongoose';
 import { AppModule } from '../app.module.js';
 import { BookingStatus } from '../bookings/booking-status.js';
 import { Booking } from '../bookings/schemas/booking.schema.js';
@@ -192,6 +195,11 @@ const CUSTOMERS = [
   { name: 'Lakshmi Sivakumar', phone: '0771110003' },
 ];
 
+// Same ObjectId on every run, so references to seed users/services never break.
+function stableId(key: string): Types.ObjectId {
+  return new Types.ObjectId(createHash('sha256').update(`fixclean-seed:${key}`).digest('hex').slice(0, 24));
+}
+
 function emailFor(name: string): string {
   return `${name.toLowerCase().replace(/[^a-z]+/g, '.')}@${SEED_DOMAIN}`;
 }
@@ -216,52 +224,78 @@ async function main() {
     const bookings = app.get<Model<Booking>>(getModelToken(Booking.name));
     const reviews = app.get<Model<Review>>(getModelToken(Review.name));
 
-    // Remove previous seed data only.
-    const oldSeedUsers = await users.find({ email: new RegExp(`@${SEED_DOMAIN.replace('.', '\\.')}$`) }, '_id');
-    const oldIds = oldSeedUsers.map((u) => u._id);
-    await Promise.all([
-      reviews.deleteMany({ $or: [{ provider: { $in: oldIds } }, { customer: { $in: oldIds } }] }),
-      bookings.deleteMany({ $or: [{ provider: { $in: oldIds } }, { customer: { $in: oldIds } }] }),
-      profiles.deleteMany({ user: { $in: oldIds } }),
-    ]);
-    await users.deleteMany({ _id: { $in: oldIds } });
+    const seedEmails = [...CUSTOMERS, ...PROVIDERS].map((x) => emailFor(x.name));
+    const seedEmailPattern = new RegExp(`@${SEED_DOMAIN.replace(/\./g, '\\.')}$`);
+
+    // 1. Remove the previous sample bookings and their reviews (seed-owned only).
+    const oldSampleBookings = await bookings.find({ reference: /^FC-SEED/ }, '_id');
+    await reviews.deleteMany({ booking: { $in: oldSampleBookings.map((b) => b._id) } });
+    await bookings.deleteMany({ reference: /^FC-SEED/ });
+
+    // 2. Remove seed accounts that are no longer in the seed list, and older
+    //    seed accounts created with random ids (one-time migration).
+    const existingSeedUsers = await users.find({ email: seedEmailPattern }, '_id email');
+    const staleIds = existingSeedUsers
+      .filter((u) => !seedEmails.includes(u.email) || !u._id.equals(stableId(u.email)))
+      .map((u) => u._id);
+    if (staleIds.length > 0) {
+      await profiles.deleteMany({ user: { $in: staleIds } });
+      await users.deleteMany({ _id: { $in: staleIds } });
+    }
 
     const passwordHash = await bcrypt.hash(SEED_PASSWORD, 12);
 
-    const customerDocs = await users.insertMany(
-      CUSTOMERS.map((c) => ({ ...c, email: emailFor(c.name), password: passwordHash, role: Role.Customer })),
-    );
+    // 3. Upsert seed accounts with fixed ids.
+    const upsertUser = async (name: string, phone: string, role: Role) => {
+      const email = emailFor(name);
+      const _id = stableId(email);
+      await users.updateOne(
+        { _id },
+        { $set: { name, email, phone, password: passwordHash, role } },
+        { upsert: true },
+      );
+      return _id;
+    };
+
+    const customerIds: Types.ObjectId[] = [];
+    for (const c of CUSTOMERS) customerIds.push(await upsertUser(c.name, c.phone, Role.Customer));
 
     let bookingCounter = 0;
     for (const p of PROVIDERS) {
-      const [user] = await users.insertMany([
-        { name: p.name, email: emailFor(p.name), phone: p.phone, password: passwordHash, role: Role.Provider },
-      ]);
+      const email = emailFor(p.name);
+      const userId = await upsertUser(p.name, p.phone, Role.Provider);
       const verified = p.status === VerificationStatus.Verified;
-      const profile = await profiles.create({
-        user: user!._id,
-        category: p.category,
-        headline: p.headline,
-        bio: p.bio,
-        serviceArea: p.serviceArea,
-        experienceYears: p.experienceYears,
-        visitFee: p.visitFee,
-        services: p.services,
-        verificationStatus: p.status,
-        verificationChecks: { identity: verified, contact: verified, experience: verified },
-        ...(verified ? { verifiedAt: daysAgo(120) } : {}),
-      });
+      const services = p.services.map((svc) => ({ _id: stableId(`${email}:${svc.name}`), ...svc }));
+      await profiles.updateOne(
+        { user: userId },
+        {
+          $set: {
+            category: p.category,
+            headline: p.headline,
+            bio: p.bio,
+            serviceArea: p.serviceArea,
+            experienceYears: p.experienceYears,
+            visitFee: p.visitFee,
+            services,
+            verificationStatus: p.status,
+            verificationChecks: { identity: verified, contact: verified, experience: verified },
+            verifiedAt: verified ? daysAgo(120) : null,
+          },
+          $setOnInsert: { _id: stableId(`profile:${email}`) },
+        },
+        { upsert: true },
+      );
 
       // Each review belongs to a past completed booking by a seed customer.
       for (const [index, r] of p.reviews.entries()) {
-        const customer = customerDocs[index % customerDocs.length]!;
-        const service = profile.services[index % profile.services.length]!;
+        const customerId = customerIds[index % customerIds.length]!;
+        const service = services[index % services.length]!;
         const completedAt = daysAgo(10 + index * 7);
         bookingCounter++;
         const booking = await bookings.create({
           reference: `FC-SEED${String(bookingCounter).padStart(2, '0')}`,
-          customer: customer._id,
-          provider: user!._id,
+          customer: customerId,
+          provider: userId,
           service: { serviceId: service._id, name: service.name, category: p.category },
           scheduledDate: isoDate(completedAt),
           timeSlot: '10:00-12:00',
@@ -286,8 +320,8 @@ async function main() {
         });
         await reviews.create({
           booking: booking._id,
-          customer: customer._id,
-          provider: user!._id,
+          customer: customerId,
+          provider: userId,
           rating: r.rating,
           comment: r.comment,
           createdAt: new Date(completedAt.getTime() + 5 * 3_600_000),
