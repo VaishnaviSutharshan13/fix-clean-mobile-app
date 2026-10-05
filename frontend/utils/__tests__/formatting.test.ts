@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { addDays, daysBetween, formatBookingDate, formatDateTime, formatTimeSlot, sriLankaToday } from '../dates';
-import { formatLKR } from '../money';
+import { formatLKR, formatLKRCompact } from '../money';
 
 describe('date formatting (Sri Lanka time, engine independent)', () => {
   it('formats calendar dates', () => {
@@ -35,5 +35,15 @@ describe('formatLKR', () => {
     expect(formatLKR(2500)).toBe('Rs. 2,500');
     expect(formatLKR(500)).toBe('Rs. 500');
     expect(formatLKR(1234567)).toBe('Rs. 1,234,567');
+  });
+});
+
+describe('formatLKRCompact', () => {
+  it('keeps large totals short enough for narrow KPI tiles', () => {
+    expect(formatLKRCompact(950)).toBe('Rs. 950');
+    expect(formatLKRCompact(15_400)).toBe('Rs. 15k');
+    expect(formatLKRCompact(999_600)).toBe('Rs. 1M');
+    expect(formatLKRCompact(3_040_800)).toBe('Rs. 3M');
+    expect(formatLKRCompact(3_250_000)).toBe('Rs. 3.3M');
   });
 });
