@@ -114,6 +114,22 @@ export class ProviderProfile {
   @Prop({ type: Date })
   verifiedAt?: Date;
 
+  // Admin review outcome (FR7). Set only by the Admin module.
+  @Prop({ type: Date })
+  reviewedAt?: Date;
+
+  @Prop({ type: Types.ObjectId, ref: User.name })
+  reviewedBy?: Types.ObjectId;
+
+  // Optional reason shown to the provider when their application is rejected.
+  @Prop({ type: String, trim: true })
+  rejectionReason?: string;
+
+  // Last time the provider saved Services & Rates. Lets administrators see
+  // when a verified provider changed prices after approval.
+  @Prop({ type: Date })
+  servicesUpdatedAt?: Date;
+
   @Prop({ type: AvailabilitySchema, default: () => ({}) })
   availability: Availability;
 

@@ -38,12 +38,28 @@ const SORT_STAGES: Record<ProviderSort, Record<string, 1 | -1>> = {
 
 // Customers only see providers an administrator has verified AND who offer at
 // least one service (otherwise there would be nothing to book).
-const CUSTOMER_VISIBLE = {
+export const CUSTOMER_VISIBLE = {
   verificationStatus: VerificationStatus.Verified,
   'services.0': { $exists: true },
 };
 
-function escapeRegex(value: string): string {
+// Excludes providers whose account an administrator has suspended. Joined
+// from the users collection; accounts without the field count as active.
+export const ACTIVE_ACCOUNT_STAGES: PipelineStage[] = [
+  {
+    $lookup: {
+      from: 'users',
+      localField: 'user',
+      foreignField: '_id',
+      pipeline: [{ $match: { isActive: { $ne: false } } }, { $project: { _id: 1 } }],
+      as: 'activeAccount',
+    },
+  },
+  { $match: { 'activeAccount.0': { $exists: true } } },
+  { $project: { activeAccount: 0 } },
+];
+
+export function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
@@ -95,6 +111,7 @@ export class ProvidersService {
     const rows = await this.profileModel
       .aggregate<{ _id: ServiceCategory; providerCount: number; startingPrice: number | null }>([
         { $match: CUSTOMER_VISIBLE },
+        ...ACTIVE_ACCOUNT_STAGES,
         {
           $group: {
             _id: '$category',
@@ -188,6 +205,10 @@ export class ProvidersService {
       })),
     );
     profile.visitFee = dto.visitFee;
+    // Policy: services & prices stay provider-controlled after verification
+    // (the provider remains verified); the change is timestamped so
+    // administrators can see it on Verification Details.
+    profile.servicesUpdatedAt = new Date();
     await profile.save();
     return toAccountView(user, profile);
   }
@@ -231,10 +252,14 @@ export class ProvidersService {
   }
 
   // Used by the bookings module to validate the provider being booked.
-  findVerifiedProfile(providerUserId: string): Promise<ProviderProfileDocument | null> {
-    return this.profileModel
-      .findOne({ user: new Types.ObjectId(providerUserId), ...CUSTOMER_VISIBLE })
+  async findVerifiedProfile(providerUserId: string): Promise<ProviderProfileDocument | null> {
+    const [row] = await this.profileModel
+      .aggregate<ProviderProfile>([
+        { $match: { user: new Types.ObjectId(providerUserId), ...CUSTOMER_VISIBLE } },
+        ...ACTIVE_ACCOUNT_STAGES,
+      ])
       .exec();
+    return row ? this.profileModel.hydrate(row) : null;
   }
 
   findProfilesByUserIds(userIds: Types.ObjectId[]): Promise<ProviderProfileDocument[]> {
@@ -248,7 +273,8 @@ export class ProvidersService {
           from: 'users',
           localField: 'user',
           foreignField: '_id',
-          pipeline: [{ $project: { name: 1 } }],
+          // Suspended accounts are never shown to customers.
+          pipeline: [{ $match: { isActive: { $ne: false } } }, { $project: { name: 1 } }],
           as: 'user',
         },
       },
@@ -336,6 +362,8 @@ function toAccountView(user: AuthUser, profile: ProviderProfileDocument): Provid
       contact: !!profile.verificationChecks?.contact,
       experience: !!profile.verificationChecks?.experience,
     },
+    rejectionReason:
+      profile.verificationStatus === VerificationStatus.Rejected ? (profile.rejectionReason ?? null) : null,
     servicesCount: profile.services.length,
     services: profile.services.map((s) => ({
       id: String(s._id),

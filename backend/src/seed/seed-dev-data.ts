@@ -1,13 +1,15 @@
 /**
  * DEVELOPMENT SEED DATA — not production functionality.
  *
- * Provider onboarding (Provider module) and verification (Admin module) are not
- * built yet, so this script inserts sample verified providers, plus a few past
- * completed bookings and reviews so FR1 (ratings/reviews) can be exercised.
+ * Inserts sample verified providers (plus one pending provider for the Admin
+ * verification demo), customers, a development admin account, past completed
+ * bookings with reviews (FR1), bookings in every other status (Admin Booking
+ * Monitoring) and sample complaints (Admin Complaints / Disputes).
  * Seed accounts use "@seed.fixclean.lk" emails and fixed ids, and are updated
  * in place on every run, so bookings that other customers made with a seed
- * provider stay valid. Only the sample bookings ("FC-SEED…") and their reviews
- * are deleted and recreated. No other data is touched.
+ * provider stay valid. Only the sample bookings ("FC-SEED…"), their reviews and
+ * the sample complaints ("CP-SEED…") are deleted and recreated. No other data
+ * is touched.
  *
  * Run: yarn seed   (refuses to run when NODE_ENV=production)
  */
@@ -19,6 +21,8 @@ import { Model, Types } from 'mongoose';
 import { AppModule } from '../app.module.js';
 import { BookingStatus } from '../bookings/booking-status.js';
 import { Booking } from '../bookings/schemas/booking.schema.js';
+import { ComplaintCategory, ComplaintStatus } from '../complaints/complaint-status.js';
+import { Complaint } from '../complaints/schemas/complaint.schema.js';
 import {
   ProviderProfile,
   ServiceCategory,
@@ -189,6 +193,9 @@ const PROVIDERS: SeedProvider[] = [
   },
 ];
 
+// Development administrator (admins can't self-register).
+const ADMIN = { name: 'Platform Administrator', email: `admin@${SEED_DOMAIN}`, phone: '0112345600' };
+
 const CUSTOMERS = [
   { name: 'Kumari Perera', phone: '0771110001' },
   { name: 'Ahamed Rizvi', phone: '0771110002' },
@@ -212,6 +219,11 @@ function isoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+// Calendar date in Sri Lanka time (UTC+05:30), `days` from today.
+function sriLankaDatePlus(days: number): string {
+  return isoDate(new Date(Date.now() + 5.5 * 3_600_000 + days * 86_400_000));
+}
+
 async function main() {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('Refusing to seed development data when NODE_ENV=production');
@@ -223,11 +235,13 @@ async function main() {
     const profiles = app.get<Model<ProviderProfile>>(getModelToken(ProviderProfile.name));
     const bookings = app.get<Model<Booking>>(getModelToken(Booking.name));
     const reviews = app.get<Model<Review>>(getModelToken(Review.name));
+    const complaints = app.get<Model<Complaint>>(getModelToken(Complaint.name));
 
-    const seedEmails = [...CUSTOMERS, ...PROVIDERS].map((x) => emailFor(x.name));
+    const seedEmails = [...[...CUSTOMERS, ...PROVIDERS].map((x) => emailFor(x.name)), ADMIN.email];
     const seedEmailPattern = new RegExp(`@${SEED_DOMAIN.replace(/\./g, '\\.')}$`);
 
-    // 1. Remove the previous sample bookings and their reviews (seed-owned only).
+    // 1. Remove the previous sample complaints, bookings and reviews (seed-owned only).
+    await complaints.deleteMany({ reference: /^CP-SEED/ });
     const oldSampleBookings = await bookings.find({ reference: /^FC-SEED/ }, '_id');
     await reviews.deleteMany({ booking: { $in: oldSampleBookings.map((b) => b._id) } });
     await bookings.deleteMany({ reference: /^FC-SEED/ });
@@ -246,21 +260,27 @@ async function main() {
     const passwordHash = await bcrypt.hash(SEED_PASSWORD, 12);
 
     // 3. Upsert seed accounts with fixed ids.
-    const upsertUser = async (name: string, phone: string, role: Role) => {
-      const email = emailFor(name);
+    const upsertUser = async (name: string, phone: string, role: Role, email = emailFor(name)) => {
       const _id = stableId(email);
       await users.updateOne(
         { _id },
-        { $set: { name, email, phone, password: passwordHash, role } },
+        // Also reactivates seed accounts an admin suspended during a demo.
+        { $set: { name, email, phone, password: passwordHash, role, isActive: true }, $unset: { suspendedAt: 1 } },
         { upsert: true },
       );
       return _id;
     };
 
+    const adminId = await upsertUser(ADMIN.name, ADMIN.phone, Role.Admin, ADMIN.email);
+
     const customerIds: Types.ObjectId[] = [];
     for (const c of CUSTOMERS) customerIds.push(await upsertUser(c.name, c.phone, Role.Customer));
 
     let bookingCounter = 0;
+    const nextReference = () => `FC-SEED${String(++bookingCounter).padStart(2, '0')}`;
+    // First completed booking of each seed customer (used for sample complaints).
+    const completedByCustomer = new Map<number, { _id: Types.ObjectId; provider: Types.ObjectId }>();
+    const providerData = new Map<string, { userId: Types.ObjectId; services: { _id: Types.ObjectId; name: string; price: number }[] }>();
     for (const p of PROVIDERS) {
       const email = emailFor(p.name);
       const userId = await upsertUser(p.name, p.phone, Role.Provider);
@@ -280,20 +300,25 @@ async function main() {
             verificationStatus: p.status,
             verificationChecks: { identity: verified, contact: verified, experience: verified },
             verifiedAt: verified ? daysAgo(120) : null,
+            reviewedAt: verified ? daysAgo(120) : null,
+            reviewedBy: verified ? adminId : null,
+            rejectionReason: null,
           },
           $setOnInsert: { _id: stableId(`profile:${email}`) },
         },
         { upsert: true },
       );
 
+      providerData.set(p.name, { userId, services });
+
       // Each review belongs to a past completed booking by a seed customer.
       for (const [index, r] of p.reviews.entries()) {
-        const customerId = customerIds[index % customerIds.length]!;
+        const customerIndex = index % customerIds.length;
+        const customerId = customerIds[customerIndex]!;
         const service = services[index % services.length]!;
         const completedAt = daysAgo(10 + index * 7);
-        bookingCounter++;
         const booking = await bookings.create({
-          reference: `FC-SEED${String(bookingCounter).padStart(2, '0')}`,
+          reference: nextReference(),
           customer: customerId,
           provider: userId,
           service: { serviceId: service._id, name: service.name, category: p.category },
@@ -318,6 +343,9 @@ async function main() {
             changedAt: new Date(completedAt.getTime() + step * 3_600_000),
           })),
         });
+        if (!completedByCustomer.has(customerIndex)) {
+          completedByCustomer.set(customerIndex, { _id: booking._id, provider: userId });
+        }
         await reviews.create({
           booking: booking._id,
           customer: customerId,
@@ -329,10 +357,122 @@ async function main() {
       }
     }
 
+    // 4. Bookings in the other statuses, for Admin Booking Monitoring. They
+    //    also appear in the seed providers' portals as real requests/jobs.
+    const completedCount = bookingCounter;
+    const lifecycle: Record<string, BookingStatus[]> = {
+      [BookingStatus.Requested]: [BookingStatus.Requested],
+      [BookingStatus.Confirmed]: [BookingStatus.Requested, BookingStatus.Confirmed],
+      [BookingStatus.OnTheWay]: [BookingStatus.Requested, BookingStatus.Confirmed, BookingStatus.OnTheWay],
+      [BookingStatus.Cancelled]: [BookingStatus.Requested, BookingStatus.Cancelled],
+      [BookingStatus.Declined]: [BookingStatus.Requested, BookingStatus.Declined],
+    };
+    const activeSamples = [
+      { status: BookingStatus.Requested, customer: 0, provider: 'Sunil Fernando', days: 2, slot: '10:00-12:00' },
+      { status: BookingStatus.Confirmed, customer: 1, provider: 'Nuwan Jayasinghe', days: 1, slot: '14:00-16:00' },
+      { status: BookingStatus.OnTheWay, customer: 2, provider: 'Malini Gunawardena', days: 0, slot: '16:00-18:00' },
+      { status: BookingStatus.Cancelled, customer: 0, provider: 'Kasun Perera', days: 3, slot: '08:00-10:00', reason: 'Fixed it myself' },
+      { status: BookingStatus.Declined, customer: 1, provider: 'Tharindu Wickramasinghe', days: 2, slot: '12:00-14:00', reason: 'Fully booked that day' },
+    ];
+    for (const [index, sample] of activeSamples.entries()) {
+      const provider = PROVIDERS.find((x) => x.name === sample.provider)!;
+      const { userId, services } = providerData.get(sample.provider)!;
+      const service = services[0]!;
+      const customerId = customerIds[sample.customer]!;
+      const createdAt = new Date(Date.now() - (activeSamples.length - index) * 3_600_000);
+      await bookings.create({
+        reference: nextReference(),
+        customer: customerId,
+        provider: userId,
+        service: { serviceId: service._id, name: service.name, category: provider.category },
+        scheduledDate: sriLankaDatePlus(sample.days),
+        timeSlot: sample.slot,
+        address: { street: 'No. 42, Station Road', city: provider.serviceArea, landmark: '' },
+        problemDescription: `Sample booking: ${service.name.toLowerCase()}.`,
+        pricing: {
+          servicePrice: service.price,
+          visitFee: provider.visitFee,
+          total: service.price + provider.visitFee,
+          currency: 'LKR',
+        },
+        status: sample.status,
+        cancellationReason: sample.reason,
+        statusHistory: lifecycle[sample.status]!.map((status, step) => ({
+          status,
+          changedAt: new Date(createdAt.getTime() + step * 600_000),
+          changedBy: step === 0 || status === BookingStatus.Cancelled ? customerId : userId,
+          ...(step > 0 && sample.reason ? { note: sample.reason } : {}),
+        })),
+        createdAt,
+      });
+    }
+
+    // 5. Sample complaints in each lifecycle state (Admin Complaints / Disputes).
+    const complaintSamples = [
+      {
+        customer: 0,
+        status: ComplaintStatus.Open,
+        category: ComplaintCategory.ServiceQuality,
+        subject: 'Tap started leaking again after two days',
+        description:
+          'The kitchen tap that was repaired started dripping again two days later. I would like the provider to come back and fix it properly without another visiting fee.',
+      },
+      {
+        customer: 1,
+        status: ComplaintStatus.InReview,
+        category: ComplaintCategory.Pricing,
+        subject: 'Charged more than the listed price',
+        description: 'The provider asked for an extra Rs. 500 in cash on top of the listed service price and visiting fee.',
+      },
+      {
+        customer: 2,
+        status: ComplaintStatus.Resolved,
+        category: ComplaintCategory.NoShow,
+        subject: 'Provider arrived an hour late',
+        description: 'The provider arrived about an hour after the selected arrival window without calling ahead.',
+        resolution: 'Provider apologised and agreed to call customers when running late. Customer accepted.',
+      },
+    ];
+    let complaintCounter = 0;
+    for (const sample of complaintSamples) {
+      const booking = completedByCustomer.get(sample.customer);
+      if (!booking) continue;
+      const customerId = customerIds[sample.customer]!;
+      const openedAt = daysAgo(6 - complaintCounter * 2);
+      const steps =
+        sample.status === ComplaintStatus.Open
+          ? [ComplaintStatus.Open]
+          : sample.status === ComplaintStatus.InReview
+            ? [ComplaintStatus.Open, ComplaintStatus.InReview]
+            : [ComplaintStatus.Open, ComplaintStatus.InReview, ComplaintStatus.Resolved];
+      complaintCounter++;
+      await complaints.create({
+        reference: `CP-SEED${String(complaintCounter).padStart(2, '0')}`,
+        customer: customerId,
+        provider: booking.provider,
+        booking: booking._id,
+        category: sample.category,
+        subject: sample.subject,
+        description: sample.description,
+        status: sample.status,
+        statusHistory: steps.map((status, step) => ({
+          status,
+          changedAt: new Date(openedAt.getTime() + step * 86_400_000),
+          changedBy: step === 0 ? customerId : adminId,
+          ...(status === ComplaintStatus.Resolved && sample.resolution ? { note: sample.resolution } : {}),
+        })),
+        ...(sample.resolution
+          ? { resolutionNote: sample.resolution, resolvedAt: new Date(openedAt.getTime() + 2 * 86_400_000) }
+          : {}),
+        createdAt: openedAt,
+      });
+    }
+
     const verifiedCount = PROVIDERS.filter((p) => p.status === VerificationStatus.Verified).length;
     console.log(
       `Seeded ${PROVIDERS.length} providers (${verifiedCount} verified, ${PROVIDERS.length - verifiedCount} pending), ` +
-        `${CUSTOMERS.length} customers, ${bookingCounter} completed bookings with reviews.`,
+        `${CUSTOMERS.length} customers, 1 admin (${ADMIN.email}), ${completedCount} completed bookings with reviews, ` +
+        `${bookingCounter - completedCount} bookings in other statuses and ${complaintCounter} complaints.`,
     );
     console.log(`Seed accounts use "@${SEED_DOMAIN}" emails and the password from SEED_PASSWORD (default: ${SEED_PASSWORD === 'SeedPass123' ? 'SeedPass123' : '<custom>'}).`);
   } finally {

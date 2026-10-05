@@ -1,5 +1,8 @@
 import { Role, UserDocument } from '../users/schemas/user.schema.js';
 
+export const ACCOUNT_SUSPENDED_MESSAGE =
+  'This account has been suspended. Please contact FIX & CLEAN CO. support.';
+
 // Claims stored in the access token.
 export interface JwtPayload {
   sub: string;

@@ -2,8 +2,12 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
 import { AuthProvider } from '../context/AuthContext';
+import { useAdminFonts } from '../hooks/useAdminFonts';
 
 export default function RootLayout() {
+  // Admin screen fonts (Figma); non-blocking.
+  useAdminFonts();
+
   return (
     <AuthProvider>
       <StatusBar style="auto" />

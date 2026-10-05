@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { AdminModule } from './admin/admin.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { BookingsModule } from './bookings/bookings.module.js';
 import { ComplaintsModule } from './complaints/complaints.module.js';
@@ -28,6 +29,7 @@ import { UsersModule } from './users/users.module.js';
     BookingsModule,
     ReviewsModule,
     ComplaintsModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

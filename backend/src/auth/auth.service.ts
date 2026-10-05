@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -9,7 +10,7 @@ import { Types } from 'mongoose';
 import { ProvidersService } from '../providers/providers.service.js';
 import { Role, UserDocument } from '../users/schemas/user.schema.js';
 import { UsersService } from '../users/users.service.js';
-import { AuthResponse, JwtPayload, toAuthUser } from './auth.types.js';
+import { ACCOUNT_SUSPENDED_MESSAGE, AuthResponse, JwtPayload, toAuthUser } from './auth.types.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RegisterProviderDto } from './dto/register-provider.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
@@ -77,6 +78,11 @@ export class AuthService {
 
     if (!user || !passwordMatches) {
       throw new UnauthorizedException('Invalid email or password');
+    }
+
+    // Checked only after the password matches, so it reveals nothing to guessers.
+    if (user.isActive === false) {
+      throw new ForbiddenException(ACCOUNT_SUSPENDED_MESSAGE);
     }
 
     return this.buildAuthResponse(user);
