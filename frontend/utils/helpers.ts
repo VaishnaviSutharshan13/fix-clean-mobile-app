@@ -30,7 +30,8 @@ export function getFriendlyErrorMessage(error: unknown, overrides: ErrorMessages
       case 401:
         return 'Your session has expired. Please sign in again.';
       case 403:
-        return 'You do not have permission to do that.';
+        // Suspended accounts get the server's explanation at sign-in.
+        return /suspended/i.test(error.message) ? error.message : 'You do not have permission to do that.';
       case 404:
         return 'We could not find what you were looking for.';
       case 409:

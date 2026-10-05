@@ -29,6 +29,9 @@ export default function VerificationBanner({ account }: { account: ProviderAccou
             ? 'Your provider application was not approved, so customers cannot book you. Please contact FIX & CLEAN CO. support.'
             : 'An administrator will check your identity, contact, experience and the services & rates you list. Customers can find and book you once you are verified.'}
         </Text>
+        {rejected && account.rejectionReason ? (
+          <Text style={styles.reason}>Reason: {account.rejectionReason}</Text>
+        ) : null}
       </View>
     </View>
   );
@@ -41,4 +44,5 @@ const styles = StyleSheet.create({
   text: { flex: 1, gap: 2 },
   title: { fontSize: 15, fontWeight: '800' },
   body: { fontSize: 13, lineHeight: 18, color: colors.text },
+  reason: { fontSize: 13, lineHeight: 18, color: colors.text, fontWeight: '700', marginTop: 4 },
 });

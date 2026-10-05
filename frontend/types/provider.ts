@@ -75,6 +75,8 @@ export interface ProviderAccount {
   experienceYears: number;
   verificationStatus: VerificationStatus;
   verificationChecks: VerificationChecks;
+  // Administrator's reason, only when the application was rejected.
+  rejectionReason: string | null;
   servicesCount: number;
   services: ProviderServiceItem[];
   visitFee: number;
