@@ -93,7 +93,7 @@ describe('Customer flow (e2e)', () => {
         verificationStatus: VerificationStatus.Verified,
         verificationChecks: { identity: true, contact: true, experience: true },
       },
-      { new: true },
+      { returnDocument: 'after' },
     ))!;
     serviceId = String(profile.services[0]!._id);
     await profiles.updateOne(
