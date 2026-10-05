@@ -229,7 +229,7 @@ describe('Provider module (e2e)', () => {
           visitFee: 500,
           services: [{ name: 'Tap Repair', price: 2000 }],
         },
-        { new: true },
+        { returnDocument: 'after' },
       );
       serviceId = String(profile!.services[0]!._id);
       bookingId = (await createBooking()).id;

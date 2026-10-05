@@ -88,7 +88,7 @@ export class ProviderBookingsService {
             },
           },
         },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .exec();
 

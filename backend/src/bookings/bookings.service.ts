@@ -142,7 +142,8 @@ export class BookingsService {
     if (dto.scheduledDate || dto.timeSlot) {
       this.assertSchedule(date, slot);
       const current = await this.providersService.findVerifiedProfile(String(booking.provider));
-      if (current) this.assertProviderAvailable(current, date, slot);
+      if (!current) throw new NotFoundException('This provider is no longer available');
+      this.assertProviderAvailable(current, date, slot);
     }
 
     if (dto.serviceId) {

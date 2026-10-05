@@ -21,6 +21,7 @@ import { ADMIN_BOOKING_META, BOOKING_ACCENT, BOOKING_FILTERS } from '../../utils
 import { CATEGORY_META } from '../../utils/display';
 import { formatBookingDate, formatDateTime, formatTimeSlot } from '../../utils/dates';
 import { formatLKR, getFriendlyErrorMessage, getInitials } from '../../utils/helpers';
+import { formatLKRCompact } from '../../utils/money';
 
 const POLL_MS = 15_000;
 const ACTIVE: BookingStatus[] = ['requested', 'confirmed', 'on_the_way'];
@@ -88,7 +89,7 @@ export default function BookingMonitoring() {
       <View style={styles.kpiWell}>
         <Kpi icon="pulse-outline" label="Active" value={String(active)} suffix={counts ? `/${counts.all}` : ''} sub={`${counts?.requested ?? 0} awaiting reply`} />
         <Kpi icon="checkmark-done-outline" label="Completed" value={String(counts?.completed ?? 0)} sub={`${(counts?.cancelled ?? 0) + (counts?.declined ?? 0)} closed early`} />
-        <Kpi icon="cash-outline" label="Active value" value={activeValue >= 1000 ? `Rs. ${Math.round(activeValue / 1000)}k` : formatLKR(activeValue)} sub="Across listed jobs" />
+        <Kpi icon="cash-outline" label="Active value" value={formatLKRCompact(activeValue)} sub="Across listed jobs" />
       </View>
 
       <Pressable

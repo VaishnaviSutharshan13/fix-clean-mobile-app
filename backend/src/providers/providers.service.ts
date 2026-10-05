@@ -225,7 +225,7 @@ export class ProvidersService {
       .findOneAndUpdate(
         { user: new Types.ObjectId(user.id) },
         { $set: { availability, availabilityUpdatedAt: new Date() } },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .exec();
     if (!profile) throw new NotFoundException('Provider profile not found');
