@@ -13,6 +13,6 @@ import { ProviderProfile, ProviderProfileSchema } from './schemas/provider-profi
   ],
   controllers: [ProvidersController, ProviderAccountController],
   providers: [ProvidersService],
-  exports: [ProvidersService],
+  exports: [ProvidersService, MongooseModule],
 })
 export class ProvidersModule {}
