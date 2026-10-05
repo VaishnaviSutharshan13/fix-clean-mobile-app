@@ -122,6 +122,8 @@ keep their price snapshot.
 
 ## Testing status
 
+- Final integration pass (5 Oct 2026): see [`docs/testing/TEST_SUMMARY.md`](../docs/testing/TEST_SUMMARY.md).
+  `test/integration.e2e-spec.ts` covers the full Provider → Admin → Customer → Provider lifecycle through the real APIs.
 - Backend unit and e2e tests cover auth, customer, provider and admin flows (`yarn test`, `yarn test:e2e`).
 - The full Provider → Admin → Customer → Provider flow (sign up, services, admin approval,
   customer booking, accept → on the way → completed) and the rejection flow were tested in

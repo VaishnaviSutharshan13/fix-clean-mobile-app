@@ -52,6 +52,7 @@ Demo accounts and the status-simulation tool are documented in
 
 ## Testing status
 
+- Final integration and responsive pass (5 Oct 2026): see [`docs/testing/TEST_SUMMARY.md`](../docs/testing/TEST_SUMMARY.md).
 - Unit tests: `yarn test` (pure logic in `utils/`).
 - The Customer and Provider screens have been tested in the Expo **web** app at mobile
   viewport sizes (412×915 and 360×780), including the live Customer ↔ Provider flow.
