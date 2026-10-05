@@ -8,6 +8,7 @@ import { UsersService } from './users.service.js';
   imports: [MongooseModule.forFeature([{ name: User.name, schema: UserSchema }])],
   controllers: [UsersController],
   providers: [UsersService],
-  exports: [UsersService],
+  // MongooseModule is exported so the Admin module can query users directly.
+  exports: [UsersService, MongooseModule],
 })
 export class UsersModule {}

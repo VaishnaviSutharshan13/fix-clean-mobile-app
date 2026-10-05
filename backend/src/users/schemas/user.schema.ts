@@ -25,6 +25,15 @@ export class User {
   @Prop({ type: String, required: true, enum: Object.values(Role), default: Role.Customer })
   role: Role;
 
+  // Account state managed by administrators (User Management). Suspended
+  // accounts can't sign in and their existing tokens stop working.
+  // Documents created before this field existed count as active.
+  @Prop({ type: Boolean, default: true })
+  isActive: boolean;
+
+  @Prop({ type: Date })
+  suspendedAt?: Date;
+
   createdAt: Date;
   updatedAt: Date;
 }
