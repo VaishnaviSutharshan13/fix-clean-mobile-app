@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { BookingsModule } from './bookings/bookings.module.js';
 import { ComplaintsModule } from './complaints/complaints.module.js';
 import { validateEnv } from './config/env.validation.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
 import { ProvidersModule } from './providers/providers.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
 import { UsersModule } from './users/users.module.js';
@@ -30,6 +31,7 @@ import { UsersModule } from './users/users.module.js';
     ReviewsModule,
     ComplaintsModule,
     AdminModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}
