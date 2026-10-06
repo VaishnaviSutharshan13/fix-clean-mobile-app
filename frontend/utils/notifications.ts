@@ -37,3 +37,14 @@ export function latestUnreadNotice(items: AppNotification[], hiddenIds: Readonly
     ids: unread.map((n) => n.id),
   };
 }
+
+// Booking id of the newest unread customer booking update (the Home / Provider
+// List bell opens that booking's Track Booking screen), or null.
+export function latestUnreadBookingId(items: AppNotification[]): string | null {
+  let newest: AppNotification | null = null;
+  for (const n of items) {
+    if (n.read || !n.bookingId || !BOOKING_NOTICES[n.type]) continue;
+    if (!newest || n.createdAt > newest.createdAt) newest = n;
+  }
+  return newest?.bookingId ?? null;
+}

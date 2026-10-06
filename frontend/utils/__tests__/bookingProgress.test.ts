@@ -19,7 +19,7 @@ function makeBooking(status: BookingStatus, history: BookingStatus[] = [status])
     problemDescription: 'Leaking tap',
     pricing: { servicePrice: 2000, visitFee: 500, total: 2500, currency: 'LKR' },
     paymentMethod: 'cash_on_service',
-    provider: { id: 'p1', name: 'Sunil Fernando', headline: 'Plumber', serviceArea: 'Jaffna' },
+    provider: { id: 'p1', name: 'Sunil Fernando', headline: 'Plumber', serviceArea: 'Jaffna', avatarUrl: null },
     canModify: status === 'requested',
     canCancel: status === 'requested' || status === 'confirmed',
     createdAt: '2026-10-04T03:00:00.000Z',

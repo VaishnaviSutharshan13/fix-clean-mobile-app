@@ -1,3 +1,4 @@
+import { avatarPath } from '../users/avatar.js';
 import { Role, UserDocument } from '../users/schemas/user.schema.js';
 
 export const ACCOUNT_SUSPENDED_MESSAGE =
@@ -17,6 +18,8 @@ export interface AuthUser {
   email: string;
   phone: string;
   role: Role;
+  // Public path of the profile photo, or null.
+  avatarUrl: string | null;
 }
 
 export interface AuthResponse {
@@ -31,5 +34,6 @@ export function toAuthUser(user: UserDocument): AuthUser {
     email: user.email,
     phone: user.phone,
     role: user.role,
+    avatarUrl: avatarPath(user.id as string, user.avatarUpdatedAt),
   };
 }

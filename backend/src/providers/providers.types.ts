@@ -25,6 +25,10 @@ export interface ProviderSummary {
   verificationChecks: VerificationChecksView;
   // Duty status (FR5); off-duty providers can't be booked.
   isAvailable: boolean;
+  // Public path of the provider's profile photo, or null.
+  avatarUrl: string | null;
+  // Next bookable arrival window from the provider's schedule (Sri Lanka time), or null.
+  nextSlot: { date: string; timeSlot: string } | null;
 }
 
 export interface ProviderServiceView {
@@ -48,6 +52,7 @@ export interface ProviderDetails extends ProviderSummary {
 export interface ProviderAccountView {
   id: string;
   name: string;
+  avatarUrl: string | null;
   email: string;
   phone: string;
   category: ServiceCategory;

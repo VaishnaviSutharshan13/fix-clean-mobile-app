@@ -7,6 +7,8 @@ export interface User {
   email: string;
   phone: string;
   role: UserRole;
+  // Public path of the profile photo (e.g. /users/<id>/avatar?v=…), or null.
+  avatarUrl: string | null;
 }
 
 export interface LoginPayload {

@@ -2,12 +2,13 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { NotificationsService } from '../notifications/notifications.service.js';
+import { avatarPath } from '../users/avatar.js';
 import { sriLankaNow } from './booking-dates.js';
 import { BookingStatus, canTransition, TIME_SLOTS } from './booking-status.js';
 import type { ProviderBookingView, ProviderDashboardView } from './provider-bookings.types.js';
 import { Booking, BookingDocument } from './schemas/booking.schema.js';
 
-type PopulatedCustomer = { _id: Types.ObjectId; name: string; phone: string };
+type PopulatedCustomer = { _id: Types.ObjectId; name: string; phone: string; avatarUpdatedAt?: Date };
 type ProviderBooking = Omit<BookingDocument, 'customer'> & { customer: PopulatedCustomer };
 
 export type ProviderAction = 'accept' | 'decline' | 'on-the-way' | 'complete';
@@ -165,7 +166,7 @@ export class ProviderBookingsService {
       .find(filter)
       .sort({ createdAt: -1 })
       .limit(limit)
-      .populate<{ customer: PopulatedCustomer }>('customer', 'name phone')
+      .populate<{ customer: PopulatedCustomer }>('customer', 'name phone avatarUpdatedAt')
       .exec() as Promise<ProviderBooking[]>;
   }
 }
@@ -196,6 +197,7 @@ function toProviderView(b: ProviderBooking): ProviderBookingView {
     customer: {
       name: b.customer?.name ?? 'Customer',
       ...(shared && b.customer?.phone ? { phone: b.customer.phone } : {}),
+      avatarUrl: b.customer ? avatarPath(String(b.customer._id), b.customer.avatarUpdatedAt) : null,
     },
     location: {
       city: b.address.city,

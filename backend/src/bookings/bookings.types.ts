@@ -21,6 +21,7 @@ export interface CustomerBookingView {
     serviceArea: string;
     // Only shared once the provider has confirmed the booking.
     phone?: string;
+    avatarUrl: string | null;
   };
   canModify: boolean;
   canCancel: boolean;

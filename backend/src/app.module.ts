@@ -22,6 +22,9 @@ import { UsersModule } from './users/users.module.js';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         uri: config.getOrThrow<string>('MONGODB_URI'),
+        // Keep a few connections open: opening one to a remote Atlas cluster
+        // takes seconds, which otherwise delays the first requests after start.
+        minPoolSize: 5,
       }),
     }),
     AuthModule,

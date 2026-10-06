@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, spacing } from '../../constants/theme';
 import { useAuth } from '../../hooks/useAuth';
-import { confirmAction } from '../../utils/display';
+import { photoUri } from '../../services/userService';
+import { openAccountSheet } from '../AccountSheet';
 
 type Props = {
   title: string;
@@ -16,18 +17,10 @@ type Props = {
 
 // Provider top bar (Figma): back arrow, left-aligned title, bell, avatar.
 export default function ProviderHeader({ title, showBack, hasAlerts }: Props) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
+  const photo = photoUri(user?.avatarUrl);
 
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/provider/dashboard'));
-
-  const openAccount = async () => {
-    const ok = await confirmAction(
-      user?.name ?? 'Account',
-      `Signed in as ${user?.email ?? ''}.\n\nDo you want to sign out?`,
-      'Sign out',
-    );
-    if (ok) await logout();
-  };
 
   return (
     <View style={styles.bar}>
@@ -48,9 +41,13 @@ export default function ProviderHeader({ title, showBack, hasAlerts }: Props) {
         <Ionicons name="notifications-outline" size={23} color={colors.text} />
         {hasAlerts ? <View style={styles.dot} /> : null}
       </Pressable>
-      <Pressable onPress={openAccount} accessibilityRole="button" accessibilityLabel="Account and sign out">
+      <Pressable onPress={openAccountSheet} accessibilityRole="button" accessibilityLabel="Account and sign out">
         <View style={styles.avatar}>
-          <Ionicons name="person" size={18} color={colors.white} />
+          {photo ? (
+            <Image source={{ uri: photo }} style={styles.photo} accessibilityIgnoresInvertColors />
+          ) : (
+            <Ionicons name="person" size={18} color={colors.white} />
+          )}
         </View>
         <View style={styles.online} />
       </Pressable>
@@ -85,6 +82,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  photo: { width: 34, height: 34, borderRadius: 17 },
   online: {
     position: 'absolute',
     right: -1,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { AppNotification, NotificationType } from '../../types/notification';
-import { latestUnreadNotice } from '../notifications';
+import { latestUnreadBookingId, latestUnreadNotice } from '../notifications';
 
 function make(id: string, type: NotificationType, minute: number, read = false): AppNotification {
   return {
@@ -50,5 +50,27 @@ describe('latestUnreadNotice', () => {
     const items = [make('n1', 'booking_confirmed', 1), make('n2', 'booking_on_the_way', 2)];
     expect(latestUnreadNotice(items, new Set(['n1', 'n2']))).toBeNull();
     expect(latestUnreadNotice(items, new Set(['n2']))).toMatchObject({ ids: ['n1'], status: 'confirmed' });
+  });
+});
+
+describe('latestUnreadBookingId', () => {
+  it('returns the booking of the newest unread customer booking update', () => {
+    const items = [
+      { ...make('n1', 'booking_confirmed', 1), bookingId: 'b1' },
+      { ...make('n2', 'booking_on_the_way', 3), bookingId: 'b2' },
+      { ...make('n3', 'booking_completed', 5, true), bookingId: 'b3' },
+    ];
+    expect(latestUnreadBookingId(items)).toBe('b2');
+  });
+
+  it('ignores read, provider-only and booking-less notifications', () => {
+    expect(latestUnreadBookingId([])).toBeNull();
+    expect(
+      latestUnreadBookingId([
+        make('a', 'booking_confirmed', 1, true),
+        make('b', 'booking_requested', 2),
+        { ...make('c', 'booking_declined', 3), bookingId: null },
+      ]),
+    ).toBeNull();
   });
 });

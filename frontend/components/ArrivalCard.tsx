@@ -2,38 +2,37 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, radius, spacing } from '../constants/theme';
+import { cc, cf, cr } from '../constants/customerTheme';
 import type { Booking } from '../types/booking';
 import { getArrivalInfo, type ArrivalKind } from '../utils/bookingProgress';
 
 const ICONS: Record<ArrivalKind, ComponentProps<typeof Ionicons>['name']> = {
   requested: 'hourglass-outline',
-  expected: 'time-outline',
-  en_route: 'car-outline',
-  completed: 'checkmark-done-outline',
+  expected: 'flash',
+  en_route: 'navigate',
+  completed: 'checkmark-done',
 };
 
-// Arrival / dispatch information (Booking Confirmation Variant B). Uses the
-// scheduled arrival window and status history only — never a fake live ETA.
+// Dispatch / arrival information (Confirmation "Instant Dispatch" well and
+// Track Booking). Uses the scheduled arrival window and status history only —
+// never a fake live ETA.
 export default function ArrivalCard({ booking }: { booking: Booking }) {
   const info = getArrivalInfo(booking);
   if (!info) return null;
 
-  const highlight = info.kind === 'expected' || info.kind === 'en_route';
+  const live = info.kind === 'expected' || info.kind === 'en_route' || info.kind === 'completed';
   return (
-    <View
-      style={[styles.card, highlight && styles.highlight]}
-      accessible
-      accessibilityLabel={`${info.title}: ${info.value}. ${info.detail}`}
-      testID="arrival-card"
-    >
-      <View style={[styles.icon, highlight && styles.iconHighlight]}>
-        <Ionicons name={ICONS[info.kind]} size={22} color={highlight ? colors.white : colors.primary} />
+    <View style={styles.card} accessible accessibilityLabel={`${info.title}: ${info.value}. ${info.detail}`} testID="arrival-card">
+      <View style={[styles.icon, live ? styles.iconLive : styles.iconWaiting]}>
+        <Ionicons name={ICONS[info.kind]} size={22} color={live ? cc.onSuccessBright : cc.amber} />
       </View>
       <View style={styles.text}>
-        <Text style={[styles.title, highlight && styles.titleHighlight]}>{info.title.toUpperCase()}</Text>
-        <Text style={[styles.value, highlight && styles.valueHighlight]}>{info.value}</Text>
-        <Text style={[styles.detail, highlight && styles.detailHighlight]}>{info.detail}</Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, !live && styles.titleWaiting]}>{info.title.toUpperCase()}</Text>
+          <View style={[styles.dot, !live && styles.dotWaiting]} />
+        </View>
+        <Text style={styles.value}>{info.value}</Text>
+        <Text style={styles.detail}>{info.detail}</Text>
       </View>
     </View>
   );
@@ -42,26 +41,22 @@ export default function ArrivalCard({ booking }: { booking: Booking }) {
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    gap: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.primarySoft,
+    gap: 14,
+    padding: 16,
+    borderRadius: cr.lg,
+    backgroundColor: cc.containerLow,
+    borderWidth: 1,
+    borderColor: cc.outlineSoft,
   },
-  highlight: { backgroundColor: colors.primary },
-  icon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconHighlight: { backgroundColor: colors.primaryDark },
-  text: { flex: 1, gap: 2 },
-  title: { fontSize: 11, fontWeight: '800', color: colors.primary, letterSpacing: 0.6 },
-  titleHighlight: { color: '#CFE2F5' },
-  value: { fontSize: 16, fontWeight: '800', color: colors.primaryDark },
-  valueHighlight: { color: colors.white },
-  detail: { fontSize: 12, lineHeight: 17, color: colors.textMuted },
-  detailHighlight: { color: '#DCEAF7' },
+  icon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  iconLive: { backgroundColor: cc.successBright },
+  iconWaiting: { backgroundColor: cc.amberSoft },
+  text: { flex: 1, gap: 3 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  title: { fontFamily: cf.semibold, fontSize: 12, color: cc.success, letterSpacing: 0.8 },
+  titleWaiting: { color: cc.amber },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: cc.success },
+  dotWaiting: { backgroundColor: cc.amberBright },
+  value: { fontFamily: cf.bold, fontSize: 14, color: cc.text },
+  detail: { fontFamily: cf.body, fontSize: 13, lineHeight: 18, color: cc.textMuted },
 });
