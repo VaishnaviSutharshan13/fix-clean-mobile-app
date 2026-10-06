@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BookingsModule } from '../bookings/bookings.module.js';
 import { ComplaintsModule } from '../complaints/complaints.module.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 import { ProvidersModule } from '../providers/providers.module.js';
 import { UsersModule } from '../users/users.module.js';
 import { AdminBookingsService } from './admin-bookings.service.js';
@@ -13,7 +14,7 @@ import { AdminController } from './admin.controller.js';
 // Administrator module (FR7, FR8). Reuses the existing User, ProviderProfile,
 // Booking and Complaint models exported by their own modules.
 @Module({
-  imports: [UsersModule, ProvidersModule, BookingsModule, ComplaintsModule],
+  imports: [UsersModule, ProvidersModule, BookingsModule, ComplaintsModule, NotificationsModule],
   controllers: [AdminController],
   providers: [
     AdminDashboardService,

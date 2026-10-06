@@ -19,9 +19,11 @@ import { colors, radius, spacing } from '../../constants/theme';
 import { useAsync } from '../../hooks/useAsync';
 import { useBookingStatusNotice } from '../../hooks/useBookingStatusNotice';
 import { bookingService } from '../../services/bookingService';
+import { notificationService } from '../../services/notificationService';
 import type { Booking, BookingStatus } from '../../types/booking';
 import { confirmAction, formatBookingDate, formatDateTime, formatTimeSlot, STATUS_META } from '../../utils/display';
 import { getFriendlyErrorMessage } from '../../utils/helpers';
+import { latestUnreadNotice } from '../../utils/notifications';
 
 const POLL_INTERVAL_MS = 15_000;
 
@@ -77,6 +79,9 @@ function Stepper({ booking }: { booking: Booking }) {
 // Requested → Confirmed → On the Way → Completed (FR3). Refreshes
 // automatically while open; status changes made by the provider trigger an
 // in-app notification and update the stepper immediately.
+// Notification Management: the banner shows the customer's stored, unread
+// notification for this booking (so updates made while the app was closed
+// still appear); dismissing it marks it as read on the server.
 export default function TrackBooking() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: booking, error, loading, refreshing, reload } = useAsync(() => bookingService.getMine(id), [id]);
@@ -85,20 +90,46 @@ export default function TrackBooking() {
   const [cancelling, setCancelling] = useState(false);
   // FR3: in-app notification when the provider changes the booking status.
   const { notice, dismiss, markSeen } = useBookingStatusNotice(booking);
+  const { data: notifications, reload: reloadNotifications } = useAsync(
+    () => notificationService.listMine(id),
+    [id],
+  );
+  // Dismissed on this screen; hidden straight away while the server is updated.
+  const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(new Set());
+  const stored = latestUnreadNotice(
+    (notifications?.items ?? []).filter((n) => n.bookingId === id),
+    hiddenIds,
+  );
+  // Falls back to the live polling notice if the stored one isn't available.
+  const shownNotice = stored ?? notice;
+
+  const dismissNotice = () => {
+    dismiss();
+    if (!stored) return;
+    const ids = stored.ids;
+    setHiddenIds((prev) => new Set([...prev, ...ids]));
+    void Promise.allSettled(ids.map((nid) => notificationService.markRead(nid))).then(() =>
+      reloadNotifications(true),
+    );
+  };
 
   // The screen can be reused for another booking (e.g. a deep link): drop
   // feedback messages that belonged to the previous one.
   useEffect(() => {
     setActionError(undefined);
     setActionSuccess(undefined);
+    setHiddenIds(new Set());
   }, [id]);
 
   // Poll only while this screen is focused.
   useFocusEffect(
     useCallback(() => {
-      const timer = setInterval(() => void reload(true), POLL_INTERVAL_MS);
+      const timer = setInterval(() => {
+        void reload(true);
+        void reloadNotifications(true);
+      }, POLL_INTERVAL_MS);
       return () => clearInterval(timer);
-    }, [reload]),
+    }, [reload, reloadNotifications]),
   );
 
   if (loading && !booking) return <Loading message="Loading booking status…" />;
@@ -144,9 +175,17 @@ export default function TrackBooking() {
   return (
     <Screen
       header={<Header title="Track Booking" onBack={() => (router.canGoBack() ? router.back() : router.replace('/customer/home'))} />}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => reload(true)} />}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => {
+            void reloadNotifications(true);
+            void reload(true);
+          }}
+        />
+      }
     >
-      {notice ? <StatusChangeBanner notice={notice} onDismiss={dismiss} /> : null}
+      {shownNotice ? <StatusChangeBanner notice={shownNotice} onDismiss={dismissNotice} /> : null}
 
       {/* Provider */}
       <Card>

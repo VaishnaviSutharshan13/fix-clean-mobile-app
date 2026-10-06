@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { sriLankaNow } from './booking-dates.js';
 import { BookingStatus, canTransition, TIME_SLOTS } from './booking-status.js';
 import type { ProviderBookingView, ProviderDashboardView } from './provider-bookings.types.js';
@@ -39,7 +40,10 @@ function bySchedule(a: { scheduledDate: string; timeSlot: string }, b: { schedul
 
 @Injectable()
 export class ProviderBookingsService {
-  constructor(@InjectModel(Booking.name) private readonly bookingModel: Model<Booking>) {}
+  constructor(
+    @InjectModel(Booking.name) private readonly bookingModel: Model<Booking>,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async list(providerId: string, scope: ProviderBookingScope): Promise<ProviderBookingView[]> {
     const filter: Record<string, unknown> = { provider: new Types.ObjectId(providerId) };
@@ -104,6 +108,7 @@ export class ProviderBookingsService {
       );
     }
 
+    await this.notifications.notifyBookingStatus(updated, to);
     return this.findOne(providerId, bookingId);
   }
 

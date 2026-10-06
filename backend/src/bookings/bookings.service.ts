@@ -7,6 +7,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { randomInt } from 'node:crypto';
 import { Model, mongo, Types } from 'mongoose';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { availabilityProblem, normalizeAvailability } from '../providers/availability.js';
 import { ProvidersService } from '../providers/providers.service.js';
 import { ProviderProfileDocument } from '../providers/schemas/provider-profile.schema.js';
@@ -45,6 +46,7 @@ export class BookingsService {
   constructor(
     @InjectModel(Booking.name) private readonly bookingModel: Model<Booking>,
     private readonly providersService: ProvidersService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async createForCustomer(customerId: string, dto: CreateBookingDto): Promise<CustomerBookingView> {
@@ -85,6 +87,7 @@ export class BookingsService {
           status: BookingStatus.Requested,
           statusHistory: [{ status: BookingStatus.Requested, changedAt: now, changedBy: customer }],
         });
+        await this.notifications.notifyBookingStatus(booking, BookingStatus.Requested);
         return this.findOneForCustomer(customerId, booking.id as string);
       } catch (error) {
         const duplicateReference =
@@ -195,6 +198,7 @@ export class BookingsService {
     });
 
     await booking.save();
+    await this.notifications.notifyBookingStatus(booking, BookingStatus.Cancelled);
     return this.findOneForCustomer(customerId, bookingId);
   }
 

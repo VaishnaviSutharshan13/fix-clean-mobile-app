@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, PipelineStage, Types } from 'mongoose';
 import { ACTIVE_BOOKING_STATUSES, BookingStatus } from '../bookings/booking-status.js';
 import { Booking } from '../bookings/schemas/booking.schema.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { normalizeAvailability } from '../providers/availability.js';
 import { escapeRegex } from '../providers/providers.service.js';
 import { ProviderProfile, VerificationStatus } from '../providers/schemas/provider-profile.schema.js';
@@ -29,6 +30,7 @@ export class AdminVerificationService {
     @InjectModel(ProviderProfile.name) private readonly profileModel: Model<ProviderProfile>,
     @InjectModel(User.name) private readonly userModel: Model<User>,
     @InjectModel(Booking.name) private readonly bookingModel: Model<Booking>,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async list(
@@ -188,6 +190,7 @@ export class AdminVerificationService {
     if (!updated) {
       await this.assertPending(providerUserId, 'This application was just reviewed. Please refresh.');
     }
+    await this.notifications.notifyProviderVerification(providerUserId, true);
     return this.details(providerUserId);
   }
 
@@ -211,6 +214,7 @@ export class AdminVerificationService {
     if (!updated) {
       await this.assertPending(providerUserId, 'Only pending applications can be rejected.');
     }
+    await this.notifications.notifyProviderVerification(providerUserId, false, dto.reason);
     return this.details(providerUserId);
   }
 
