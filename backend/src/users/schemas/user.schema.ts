@@ -34,6 +34,10 @@ export class User {
   @Prop({ type: Date })
   suspendedAt?: Date;
 
+  // Set when the user uploads a profile photo (stored in the avatars collection).
+  @Prop({ type: Date })
+  avatarUpdatedAt?: Date;
+
   createdAt: Date;
   updatedAt: Date;
 }

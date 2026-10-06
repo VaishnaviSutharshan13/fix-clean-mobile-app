@@ -31,7 +31,7 @@ export interface Booking {
   pricing: { servicePrice: number; visitFee: number; total: number; currency: string };
   paymentMethod: 'cash_on_service';
   cancellationReason?: string;
-  provider: { id: string; name: string; headline: string; serviceArea: string; phone?: string };
+  provider: { id: string; name: string; headline: string; serviceArea: string; phone?: string; avatarUrl: string | null };
   canModify: boolean;
   canCancel: boolean;
   createdAt: string;

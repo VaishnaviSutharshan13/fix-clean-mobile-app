@@ -14,7 +14,7 @@ export interface ProviderBookingView {
   problemDescription: string;
   pricing: { servicePrice: number; visitFee: number; total: number; currency: string };
   paymentMethod: PaymentMethod;
-  customer: { name: string; phone?: string };
+  customer: { name: string; phone?: string; avatarUrl: string | null };
   location: { city: string; street?: string; landmark?: string };
   // True once the exact address and phone are shared with the provider.
   contactShared: boolean;

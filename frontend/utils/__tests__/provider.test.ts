@@ -28,7 +28,7 @@ function job(partial: Partial<ProviderJob>): ProviderJob {
     problemDescription: 'Leak',
     pricing: { servicePrice: 2000, visitFee: 500, total: 2500, currency: 'LKR' },
     paymentMethod: 'cash_on_service',
-    customer: { name: 'Nadeesha Perera' },
+    customer: { name: 'Nadeesha Perera', avatarUrl: null },
     location: { city: 'Jaffna' },
     contactShared: false,
     actions: { accept: true, decline: true, startTrip: false, complete: false },

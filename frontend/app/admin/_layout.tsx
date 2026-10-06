@@ -10,8 +10,8 @@ export default function AdminLayout() {
   const { isLoading, isAuthenticated, role } = useAuth();
 
   if (isLoading) return <Loading />;
-  // Signed out (e.g. after Sign out) → back to the Admin Login screen.
-  if (!isAuthenticated || !role) return <Redirect href="/auth/admin-login" />;
+  // Signed out (e.g. after Sign out) → back to the shared Login screen.
+  if (!isAuthenticated || !role) return <Redirect href="/auth/customer-login" />;
   if (role !== 'admin') return <Redirect href={getHomeRouteForRole(role)} />;
 
   return <Stack screenOptions={{ headerShown: false }} />;

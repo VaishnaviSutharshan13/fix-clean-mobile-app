@@ -8,6 +8,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { randomInt } from 'node:crypto';
 import { Model, mongo, Types } from 'mongoose';
 import { NotificationsService } from '../notifications/notifications.service.js';
+import { avatarPath } from '../users/avatar.js';
 import { availabilityProblem, normalizeAvailability } from '../providers/availability.js';
 import { ProvidersService } from '../providers/providers.service.js';
 import { ProviderProfileDocument } from '../providers/schemas/provider-profile.schema.js';
@@ -24,7 +25,7 @@ import { CreateBookingDto } from './dto/create-booking.dto.js';
 import { UpdateBookingDto } from './dto/update-booking.dto.js';
 import { Booking, BookingDocument } from './schemas/booking.schema.js';
 
-type PopulatedProvider = { _id: Types.ObjectId; name: string; phone: string };
+type PopulatedProvider = { _id: Types.ObjectId; name: string; phone: string; avatarUpdatedAt?: Date };
 
 // Provider contact details are only revealed after the provider confirms.
 const PHONE_VISIBLE_STATUSES = [
@@ -108,7 +109,7 @@ export class BookingsService {
       .find(filter)
       .sort({ createdAt: -1 })
       .limit(50)
-      .populate<{ provider: PopulatedProvider }>('provider', 'name phone')
+      .populate<{ provider: PopulatedProvider }>('provider', 'name phone avatarUpdatedAt')
       .exec();
 
     return this.toCustomerViews(bookings);
@@ -117,7 +118,7 @@ export class BookingsService {
   async findOneForCustomer(customerId: string, bookingId: string): Promise<CustomerBookingView> {
     const booking = await this.bookingModel
       .findOne({ _id: bookingId, customer: new Types.ObjectId(customerId) })
-      .populate<{ provider: PopulatedProvider }>('provider', 'name phone')
+      .populate<{ provider: PopulatedProvider }>('provider', 'name phone avatarUpdatedAt')
       .exec();
 
     // Same response whether the booking doesn't exist or belongs to someone else.
@@ -275,6 +276,7 @@ export class BookingsService {
           headline: profile?.headline ?? '',
           serviceArea: profile?.serviceArea ?? '',
           ...(PHONE_VISIBLE_STATUSES.includes(b.status) ? { phone: b.provider.phone } : {}),
+          avatarUrl: avatarPath(String(b.provider._id), b.provider.avatarUpdatedAt),
         },
         canModify: b.status === BookingStatus.Requested,
         canCancel: canTransition(b.status, BookingStatus.Cancelled),

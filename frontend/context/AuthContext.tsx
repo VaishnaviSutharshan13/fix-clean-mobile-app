@@ -34,6 +34,8 @@ export type AuthContextValue = {
   registerCustomer: (payload: RegisterPayload) => Promise<User>;
   registerProvider: (payload: RegisterProviderPayload) => Promise<User>;
   logout: () => Promise<void>;
+  // Reloads the signed-in user (e.g. after changing the profile photo).
+  refreshUser: () => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -103,6 +105,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [startSession],
   );
 
+  const refreshUser = useCallback(async () => {
+    if (!token) return;
+    setUser(await authService.getProfile(token));
+  }, [token]);
+
   const logout = useCallback(async () => {
     setApiToken(null);
     await tokenStorage.clear();
@@ -128,8 +135,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       registerCustomer,
       registerProvider,
       logout,
+      refreshUser,
     }),
-    [user, token, isLoading, login, registerCustomer, registerProvider, logout],
+    [user, token, isLoading, login, registerCustomer, registerProvider, logout, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

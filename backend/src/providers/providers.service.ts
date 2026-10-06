@@ -6,7 +6,9 @@ import { BOOKINGS_COLLECTION } from '../bookings/schemas/booking.schema.js';
 import { REVIEWS_COLLECTION } from '../reviews/schemas/review.schema.js';
 import { ReviewsService } from '../reviews/reviews.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
-import { normalizeAvailability } from './availability.js';
+import { sriLankaNow } from '../bookings/booking-dates.js';
+import { avatarPath } from '../users/avatar.js';
+import { nextOpenSlot, normalizeAvailability } from './availability.js';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto.js';
 import { UpdateServicesDto } from './dto/update-services.dto.js';
 import { ProviderSort } from './dto/list-providers-query.dto.js';
@@ -274,7 +276,7 @@ export class ProvidersService {
           localField: 'user',
           foreignField: '_id',
           // Suspended accounts are never shown to customers.
-          pipeline: [{ $match: { isActive: { $ne: false } } }, { $project: { name: 1 } }],
+          pipeline: [{ $match: { isActive: { $ne: false } } }, { $project: { name: 1, avatarUpdatedAt: 1 } }],
           as: 'user',
         },
       },
@@ -316,7 +318,7 @@ export class ProvidersService {
 
 type AggregatedProvider = ProviderProfile & {
   _id: Types.ObjectId;
-  user: { _id: Types.ObjectId; name: string };
+  user: { _id: Types.ObjectId; name: string; avatarUpdatedAt?: Date };
   ratingAverage: number;
   reviewCount: number;
   completedJobs: number;
@@ -343,6 +345,8 @@ function toSummary(row: AggregatedProvider): ProviderSummary {
       experience: !!row.verificationChecks?.experience,
     },
     isAvailable: normalizeAvailability(row.availability).isAvailable,
+    avatarUrl: avatarPath(String(row.user._id), row.user.avatarUpdatedAt),
+    nextSlot: nextOpenSlot(normalizeAvailability(row.availability), sriLankaNow()),
   };
 }
 
@@ -350,6 +354,7 @@ function toAccountView(user: AuthUser, profile: ProviderProfileDocument): Provid
   return {
     id: user.id,
     name: user.name,
+    avatarUrl: user.avatarUrl,
     email: user.email,
     phone: user.phone,
     category: profile.category,

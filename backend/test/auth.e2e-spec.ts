@@ -104,6 +104,7 @@ describe('Auth (e2e)', () => {
         email: 'nimal@example.com',
         phone: customer.phone,
         role: 'customer',
+        avatarUrl: null,
       });
       expect(JSON.stringify(res.body)).not.toContain('password');
     });

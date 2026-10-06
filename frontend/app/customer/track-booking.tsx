@@ -3,29 +3,31 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
-import ArrivalCard from '../../components/ArrivalCard';
-import Avatar from '../../components/Avatar';
-import BookingSummary from '../../components/BookingSummary';
-import Button from '../../components/Button';
-import Card from '../../components/Card';
 import FormMessage from '../../components/FormMessage';
-import Header from '../../components/Header';
 import Loading from '../../components/Loading';
-import Screen from '../../components/Screen';
 import StateView from '../../components/StateView';
-import StatusBadge from '../../components/StatusBadge';
 import StatusChangeBanner from '../../components/StatusChangeBanner';
-import { colors, radius, spacing } from '../../constants/theme';
+import CustomerAvatar from '../../components/customer/CustomerAvatar';
+import { CustomerHeader } from '../../components/customer/CustomerHeader';
+import ArrivalCard from '../../components/ArrivalCard';
+import BookingSummary from '../../components/BookingSummary';
+import CustomerButton from '../../components/customer/CustomerButton';
+import { CCard } from '../../components/customer/CustomerPrimitives';
+import CustomerScreen from '../../components/customer/CustomerScreen';
+import { CATEGORY_TONE, cc, cf, cr } from '../../constants/customerTheme';
 import { useAsync } from '../../hooks/useAsync';
 import { useBookingStatusNotice } from '../../hooks/useBookingStatusNotice';
 import { bookingService } from '../../services/bookingService';
 import { notificationService } from '../../services/notificationService';
 import type { Booking, BookingStatus } from '../../types/booking';
 import { confirmAction, formatBookingDate, formatDateTime, formatTimeSlot, STATUS_META } from '../../utils/display';
-import { getFriendlyErrorMessage } from '../../utils/helpers';
+import { formatLKR, getFriendlyErrorMessage } from '../../utils/helpers';
 import { latestUnreadNotice } from '../../utils/notifications';
+import { photoUri } from '../../services/userService';
 
 const POLL_INTERVAL_MS = 15_000;
+
+const goHome = () => (router.canGoBack() ? router.back() : router.replace('/customer/home'));
 
 const STEPS: { status: BookingStatus; label: string; pending: string }[] = [
   { status: 'requested', label: 'Requested', pending: 'Sending your request' },
@@ -37,14 +39,17 @@ const STEPS: { status: BookingStatus; label: string; pending: string }[] = [
 function Stepper({ booking }: { booking: Booking }) {
   const reached = new Map(booking.statusHistory.map((h) => [h.status, h.changedAt]));
   const currentIndex = STEPS.findIndex((s) => s.status === booking.status);
+  const finished = booking.status === 'completed';
 
   return (
     <View accessibilityLabel={`Booking progress: ${STATUS_META[booking.status].label}`}>
       {STEPS.map((step, index) => {
         const at = reached.get(step.status);
         const done = !!at;
-        const current = index === currentIndex;
+        const current = index === currentIndex && !finished;
         const last = index === STEPS.length - 1;
+        const nextReached = !last && reached.has(STEPS[index + 1]!.status);
+
         return (
           <View key={step.status} style={styles.step}>
             <View style={styles.stepRail}>
@@ -52,21 +57,48 @@ function Stepper({ booking }: { booking: Booking }) {
                 style={[
                   styles.stepDot,
                   done && styles.stepDotDone,
-                  current && booking.status !== 'completed' && styles.stepDotCurrent,
+                  current && styles.stepDotCurrent,
+                  !done && !current && styles.stepDotTodo,
                 ]}
               >
-                {done ? <Ionicons name={current && booking.status !== 'completed' ? STATUS_META[step.status].icon : 'checkmark'} size={14} color={colors.white} /> : null}
+                {current ? (
+                  <Ionicons name={STATUS_META[step.status].icon} size={14} color="#FFFFFF" />
+                ) : done ? (
+                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                ) : (
+                  <View style={styles.stepDotHole} />
+                )}
               </View>
-              {!last ? <View style={[styles.stepLine, reached.has(STEPS[index + 1]!.status) && styles.stepLineDone]} /> : null}
+              {!last ? (
+                <View style={[styles.stepLine, nextReached && styles.stepLineDone]} />
+              ) : null}
             </View>
+
             <View style={styles.stepBody}>
               <View style={styles.stepTitleRow}>
-                <Text style={[styles.stepTitle, !done && styles.stepTitleTodo, current && styles.stepTitleCurrent]}>
+                <Text
+                  style={[
+                    styles.stepTitle,
+                    !done && !current && styles.stepTitleTodo,
+                    current && styles.stepTitleCurrent,
+                  ]}
+                >
                   {step.label}
                 </Text>
-                {current && booking.status !== 'completed' ? <Text style={styles.nowTag}>NOW</Text> : null}
+                {current ? (
+                  <View style={styles.etaBadge}>
+                    <Text style={styles.etaBadgeText}>NOW</Text>
+                  </View>
+                ) : null}
               </View>
-              <Text style={styles.stepSub}>{at ? formatDateTime(at) : step.pending}</Text>
+
+              <Text style={styles.stepSub}>
+                {at
+                  ? formatDateTime(at)
+                  : step.status === 'completed'
+                    ? `${step.pending} • Cash payment: ${formatLKR(booking.pricing.total)}`
+                    : step.pending}
+              </Text>
             </View>
           </View>
         );
@@ -75,32 +107,28 @@ function Stepper({ booking }: { booking: Booking }) {
   );
 }
 
-// Track Booking (Milestone 02, Variant A): vertical progress stepper
-// Requested → Confirmed → On the Way → Completed (FR3). Refreshes
-// automatically while open; status changes made by the provider trigger an
-// in-app notification and update the stepper immediately.
-// Notification Management: the banner shows the customer's stored, unread
-// notification for this booking (so updates made while the app was closed
-// still appear); dismissing it marks it as read on the server.
+// Track Booking (reference: order.jpeg) with real data: status banner (stored
+// notifications, marked read on dismiss, with the polling notice as fallback),
+// arrival information, provider, status timeline, payment, booking details and
+// Modify / Cancel while allowed. Refreshes every 15 seconds while focused.
 export default function TrackBooking() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: booking, error, loading, refreshing, reload } = useAsync(() => bookingService.getMine(id), [id]);
   const [actionError, setActionError] = useState<string>();
   const [actionSuccess, setActionSuccess] = useState<string>();
   const [cancelling, setCancelling] = useState(false);
-  // FR3: in-app notification when the provider changes the booking status.
+
   const { notice, dismiss, markSeen } = useBookingStatusNotice(booking);
   const { data: notifications, reload: reloadNotifications } = useAsync(
     () => notificationService.listMine(id),
     [id],
   );
-  // Dismissed on this screen; hidden straight away while the server is updated.
+
   const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(new Set());
   const stored = latestUnreadNotice(
     (notifications?.items ?? []).filter((n) => n.bookingId === id),
     hiddenIds,
   );
-  // Falls back to the live polling notice if the stored one isn't available.
   const shownNotice = stored ?? notice;
 
   const dismissNotice = () => {
@@ -113,15 +141,12 @@ export default function TrackBooking() {
     );
   };
 
-  // The screen can be reused for another booking (e.g. a deep link): drop
-  // feedback messages that belonged to the previous one.
   useEffect(() => {
     setActionError(undefined);
     setActionSuccess(undefined);
     setHiddenIds(new Set());
   }, [id]);
 
-  // Poll only while this screen is focused.
   useFocusEffect(
     useCallback(() => {
       const timer = setInterval(() => {
@@ -135,18 +160,19 @@ export default function TrackBooking() {
   if (loading && !booking) return <Loading message="Loading booking status…" />;
   if (!booking) {
     return (
-      <Screen header={<Header title="Track Booking" />}>
+      <CustomerScreen header={<CustomerHeader title="Track Booking" onBack={goHome} />}>
         <StateView
-          title="Couldn't load this booking"
+          title="Couldn't load booking tracker"
           message={getFriendlyErrorMessage(error)}
           actionLabel="Try again"
           onAction={() => reload()}
         />
-      </Screen>
+      </CustomerScreen>
     );
   }
 
   const ended = booking.status === 'cancelled' || booking.status === 'declined';
+  const tone = CATEGORY_TONE[booking.service.category];
 
   const handleCancel = async () => {
     const ok = await confirmAction(
@@ -160,7 +186,6 @@ export default function TrackBooking() {
     setActionSuccess(undefined);
     try {
       const updated = await bookingService.cancel(booking.id);
-      // The customer made this change, so don't raise a "status changed" notice for it.
       markSeen(updated.id, updated.status);
       setActionSuccess(`Booking ${updated.reference} has been cancelled.`);
       await reload(true);
@@ -172,9 +197,11 @@ export default function TrackBooking() {
     }
   };
 
+  const live = !ended && booking.status !== 'completed';
+
   return (
-    <Screen
-      header={<Header title="Track Booking" onBack={() => (router.canGoBack() ? router.back() : router.replace('/customer/home'))} />}
+    <CustomerScreen
+      header={<CustomerHeader title="Track Booking" onBack={goHome} />}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -184,151 +211,306 @@ export default function TrackBooking() {
           }}
         />
       }
+      contentStyle={styles.content}
     >
+      {/* SubNav: < Home and a LIVE pill while the booking is in progress (status polling) */}
+      <View style={styles.subNavRow}>
+        <Pressable
+          onPress={() => router.replace('/customer/home')}
+          style={styles.homeBackBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Home"
+        >
+          <Ionicons name="chevron-back" size={18} color={cc.primary} />
+          <Text style={styles.homeBackText}>Home</Text>
+        </Pressable>
+        {live ? (
+          <View style={styles.liveBadgePill} accessibilityLabel="Status updates automatically every 15 seconds">
+            <View style={styles.livePulseDot} />
+            <Text style={styles.liveBadgeText}>LIVE</Text>
+          </View>
+        ) : null}
+      </View>
+
       {shownNotice ? <StatusChangeBanner notice={shownNotice} onDismiss={dismissNotice} /> : null}
 
-      {/* Provider */}
-      <Card>
-        <View style={styles.providerRow}>
-          <Avatar name={booking.provider.name} size={52} />
-          <View style={styles.providerText}>
-            <Text style={styles.providerName}>{booking.provider.name}</Text>
-            <Text style={styles.muted}>{booking.provider.headline}</Text>
-            {!booking.provider.phone && !ended ? (
-              <Text style={styles.hint}>Contact details appear once the provider confirms.</Text>
-            ) : null}
-          </View>
-          {booking.provider.phone ? (
-            <Pressable
-              style={styles.callButton}
-              onPress={() => Linking.openURL(`tel:${booking.provider.phone}`)}
-              accessibilityRole="button"
-              accessibilityLabel={`Call ${booking.provider.name}`}
-            >
-              <Ionicons name="call" size={20} color={colors.white} />
-            </Pressable>
-          ) : null}
+      {/* Arrival information from the scheduled window (there is no live GPS) */}
+      {!ended ? <ArrivalCard booking={booking} /> : null}
+
+      <CCard style={styles.providerCard}>
+        <CustomerAvatar imageUrl={photoUri(booking.provider.avatarUrl)} name={booking.provider.name} size={58} shape="circle" ring tint={tone.tint} bg={tone.bg} />
+        <View style={styles.providerInfo}>
+          <Text style={styles.providerName} numberOfLines={1}>
+            {booking.provider.name}
+          </Text>
+          <Text style={styles.providerSub} numberOfLines={1}>
+            {booking.provider.headline}
+          </Text>
+          <Text style={styles.verifiedLeadText}>
+            {booking.provider.phone
+              ? `Phone shared • ${booking.provider.serviceArea}`
+              : ended
+                ? booking.provider.serviceArea
+                : 'Contact details appear once the provider confirms'}
+          </Text>
         </View>
-      </Card>
+        {/* The provider's phone is shared only after they confirm (NFR5). */}
+        {booking.provider.phone ? (
+          <Pressable
+            onPress={() => Linking.openURL(`tel:${booking.provider.phone}`)}
+            style={styles.callCircleBtn}
+            accessibilityRole="button"
+            accessibilityLabel={`Call ${booking.provider.name}`}
+          >
+            <Ionicons name="call" size={20} color="#FFFFFF" />
+          </Pressable>
+        ) : null}
+      </CCard>
 
       {error ? <FormMessage message="Couldn't refresh the latest status. Pull down to try again." /> : null}
       {actionError ? <FormMessage message={actionError} /> : null}
       {actionSuccess ? <FormMessage message={actionSuccess} tone="success" /> : null}
 
-      {/* Status */}
-      <Card
-        title="Booking status"
-        right={<Text style={styles.ref}>{booking.reference}</Text>}
-      >
-        <Text style={styles.muted}>
-          Service date: {formatBookingDate(booking.scheduledDate)}, {formatTimeSlot(booking.timeSlot)}
-        </Text>
+      <CCard style={styles.statusCard}>
+        <View style={styles.statusHeader}>
+          <View style={styles.statusHeaderLeft}>
+            <Text style={styles.statusHeaderLabel}>BOOKING STATUS</Text>
+            <Text style={styles.statusHeaderDate}>
+              Service Date: {formatBookingDate(booking.scheduledDate)}, {formatTimeSlot(booking.timeSlot).split(' – ')[0]}
+            </Text>
+          </View>
+          <View style={styles.idChip}>
+            <Text style={styles.idText}>ID #{booking.reference}</Text>
+          </View>
+        </View>
+
         {ended ? (
           <View style={styles.ended}>
-            <StatusBadge status={booking.status} />
+            <View style={[styles.endedBadge, { backgroundColor: STATUS_META[booking.status].bg }]}>
+              <Ionicons name={STATUS_META[booking.status].icon} size={15} color={STATUS_META[booking.status].fg} />
+              <Text style={[styles.endedBadgeText, { color: STATUS_META[booking.status].fg }]}>
+                {STATUS_META[booking.status].label}
+              </Text>
+            </View>
             <Text style={styles.endedText}>
               {booking.status === 'cancelled'
                 ? 'You cancelled this booking.'
                 : `${booking.provider.name} couldn't take this booking. Please choose another provider.`}
             </Text>
-            {booking.cancellationReason ? <Text style={styles.muted}>Reason: {booking.cancellationReason}</Text> : null}
-            <Button title="Find another provider" variant="secondary" onPress={() => router.replace('/customer/provider-list')} />
+            {booking.cancellationReason ? (
+              <Text style={styles.statusHeaderDate}>Reason: {booking.cancellationReason}</Text>
+            ) : null}
+            <CustomerButton
+              title="Find another provider"
+              variant="soft"
+              onPress={() => router.replace('/customer/provider-list')}
+            />
           </View>
         ) : (
-          <>
-            <ArrivalCard booking={booking} />
-            <Stepper booking={booking} />
-          </>
+          <Stepper booking={booking} />
         )}
-        {!ended && booking.status !== 'completed' ? (
-          <View style={styles.autoRefresh}>
-            <Ionicons name="sync-outline" size={13} color={colors.textMuted} />
-            <Text style={styles.hint}>Updates automatically every 15 seconds</Text>
+        {live ? (
+          <View style={styles.autoRefreshRow}>
+            <Ionicons name="sync-outline" size={13} color={cc.textMuted} />
+            <Text style={styles.statusHeaderDate}>Updates automatically every 15 seconds</Text>
           </View>
         ) : null}
-      </Card>
+      </CCard>
 
-      <Card title="Booking details">
+      <View style={styles.payCard}>
+        <View style={styles.shieldIconCircle}>
+          <Ionicons name="shield-checkmark" size={20} color={cc.primary} />
+        </View>
+        <View style={styles.payInfo}>
+          <Text style={styles.payTitle}>Cash on Service</Text>
+          <Text style={styles.paySub}>Pay the provider after the job is done</Text>
+        </View>
+        <Text style={styles.payAmount}>{formatLKR(booking.pricing.total)}</Text>
+      </View>
+
+      <CCard style={styles.detailsCard}>
+        <Text style={styles.statusHeaderLabel}>BOOKING DETAILS</Text>
         <BookingSummary booking={booking} />
-      </Card>
+      </CCard>
 
       {booking.canModify || booking.canCancel ? (
-        <View style={styles.actions}>
+        <View style={styles.actionsRow}>
           {booking.canModify ? (
-            <Button
-              title="Modify"
-              variant="secondary"
-              icon="create-outline"
+            <Pressable
               onPress={() => router.push({ pathname: '/customer/book-service', params: { bookingId: booking.id } })}
-              style={styles.actionButton}
-            />
+              style={styles.helpBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Modify booking"
+            >
+              <Ionicons name="create-outline" size={18} color={cc.primary} />
+              <Text style={styles.helpBtnText}>Modify</Text>
+            </Pressable>
           ) : null}
           {booking.canCancel ? (
-            <Button
-              title="Cancel Booking"
-              variant="danger"
-              icon="close-circle-outline"
+            <Pressable
               onPress={handleCancel}
-              loading={cancelling}
-              style={styles.actionButton}
-            />
+              disabled={cancelling}
+              style={styles.cancelBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel Booking"
+              accessibilityState={{ busy: cancelling }}
+            >
+              <Ionicons name="close-circle-outline" size={18} color={cc.cancelText} />
+              <Text style={styles.cancelBtnText}>{cancelling ? 'Cancelling…' : 'Cancel Booking'}</Text>
+            </Pressable>
           ) : null}
         </View>
       ) : null}
-    </Screen>
+    </CustomerScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  providerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  providerText: { flex: 1, gap: 2 },
-  providerName: { fontSize: 16, fontWeight: '800', color: colors.text },
-  muted: { fontSize: 13, color: colors.textMuted },
-  hint: { fontSize: 11, color: colors.textMuted },
-  callButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primary,
+  content: { paddingTop: 4, paddingBottom: 28, gap: 14 },
+  subNavRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+    minHeight: 28,
   },
-  ref: { fontSize: 12, fontWeight: '800', color: colors.primary },
-  step: { flexDirection: 'row', gap: spacing.md },
-  stepRail: { alignItems: 'center', width: 26 },
-  stepDot: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 2,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surface,
+  homeBackBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  homeBackText: { fontFamily: cf.semibold, fontSize: 15, color: cc.primary },
+  liveBadgePill: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#DDF7E8',
+    borderRadius: cr.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  stepDotDone: { backgroundColor: colors.success, borderColor: colors.success },
-  stepDotCurrent: { backgroundColor: colors.primary, borderColor: colors.primary },
-  stepLine: { flex: 1, width: 2, minHeight: 28, backgroundColor: colors.border },
-  stepLineDone: { backgroundColor: colors.success },
-  stepBody: { flex: 1, paddingBottom: spacing.lg },
-  stepTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  stepTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
-  stepTitleTodo: { color: colors.textSubtle },
-  stepTitleCurrent: { color: colors.primary },
-  nowTag: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: colors.warning,
-    backgroundColor: colors.warningSoft,
+  livePulseDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#00875A' },
+  liveBadgeText: { fontFamily: cf.bold, fontSize: 11, color: '#00875A', letterSpacing: 0.8 },
+  providerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    gap: 12,
+  },
+  providerInfo: { flex: 1, minWidth: 0, gap: 2 },
+  nameStarRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  providerName: { fontFamily: cf.headingSemi, fontSize: 16, color: cc.text },
+  starPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: cc.amberSoft,
+    borderRadius: cr.sm - 2,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: radius.full,
-    overflow: 'hidden',
   },
-  stepSub: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
-  ended: { gap: spacing.sm },
-  endedText: { fontSize: 14, color: colors.text },
-  autoRefresh: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  actions: { flexDirection: 'row', gap: spacing.sm },
-  actionButton: { flex: 1 },
+  starText: { fontFamily: cf.bold, fontSize: 11, color: cc.amber },
+  providerSub: { fontFamily: cf.body, fontSize: 13, color: cc.textMuted },
+  verifiedLeadText: { fontFamily: cf.semibold, fontSize: 12, color: cc.success },
+  callCircleBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: cc.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusCard: { padding: 16, gap: 16 },
+  statusHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 },
+  statusHeaderLeft: { flex: 1, minWidth: 0, gap: 2 },
+  statusHeaderLabel: { fontFamily: cf.semibold, fontSize: 11, color: cc.textMuted, letterSpacing: 0.8 },
+  statusHeaderDate: { fontFamily: cf.body, fontSize: 13, color: cc.text },
+  idChip: {
+    backgroundColor: cc.containerHigh,
+    borderRadius: cr.sm - 2,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  idText: { fontFamily: cf.semibold, fontSize: 12, color: cc.text },
+  step: { flexDirection: 'row', gap: 14 },
+  stepRail: { alignItems: 'center', width: 28 },
+  stepDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepDotDone: { backgroundColor: '#007A4D' },
+  stepDotCurrent: { backgroundColor: cc.primary },
+  stepDotTodo: { borderWidth: 2, borderColor: cc.outlineSoft, backgroundColor: cc.containerHigh },
+  stepDotHole: { width: 10, height: 10, borderRadius: 5, backgroundColor: cc.containerLow },
+  stepLine: { width: 2, minHeight: 32, backgroundColor: cc.outlineSoft },
+  stepLineDone: { backgroundColor: '#007A4D' },
+  stepBody: { flex: 1, paddingBottom: 16 },
+  stepTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  stepTitle: { fontFamily: cf.headingSemi, fontSize: 15, color: cc.text },
+  stepTitleTodo: { color: cc.textSubtle },
+  stepTitleCurrent: { color: cc.primary },
+  etaBadge: {
+    backgroundColor: '#E58A00',
+    borderRadius: cr.sm - 2,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  etaBadgeText: { fontFamily: cf.bold, fontSize: 11, color: '#FFFFFF' },
+  stepSub: { fontFamily: cf.body, fontSize: 12, color: cc.textMuted, marginTop: 2 },
+  ended: { gap: 10, paddingVertical: 8 },
+  endedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    borderRadius: cr.full,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  endedBadgeText: { fontFamily: cf.semibold, fontSize: 12 },
+  endedText: { fontFamily: cf.body, fontSize: 14, color: cc.text },
+  payCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: cc.container,
+    borderRadius: cr.lg,
+    padding: 14,
+  },
+  shieldIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: cc.primaryFixed,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  payInfo: { flex: 1, gap: 2 },
+  payTitle: { fontFamily: cf.headingSemi, fontSize: 14, color: cc.text },
+  paySub: { fontFamily: cf.body, fontSize: 11, color: cc.textMuted },
+  payAmount: { fontFamily: cf.heading, fontSize: 18, color: cc.primary },
+  actionsRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  helpBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#EAEFFF',
+    borderRadius: cr.md,
+    minHeight: 48,
+  },
+  helpBtnText: { fontFamily: cf.semibold, fontSize: 14, color: cc.primary },
+  cancelBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FDEEEC',
+    borderRadius: cr.md,
+    minHeight: 48,
+  },
+  cancelBtnText: { fontFamily: cf.semibold, fontSize: 14, color: cc.cancelText },
+  autoRefreshRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  detailsCard: { gap: 14 },
 });

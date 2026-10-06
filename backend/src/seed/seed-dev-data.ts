@@ -17,6 +17,7 @@ import { NestFactory } from '@nestjs/core';
 import { getModelToken } from '@nestjs/mongoose';
 import bcrypt from 'bcrypt';
 import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
 import { Model, Types } from 'mongoose';
 import { AppModule } from '../app.module.js';
 import { BookingStatus } from '../bookings/booking-status.js';
@@ -30,6 +31,7 @@ import {
 } from '../providers/schemas/provider-profile.schema.js';
 import { Review } from '../reviews/schemas/review.schema.js';
 import { Role, User } from '../users/schemas/user.schema.js';
+import { UsersService } from '../users/users.service.js';
 
 const SEED_DOMAIN = 'seed.fixclean.lk';
 const SEED_PASSWORD = process.env.SEED_PASSWORD || 'SeedPass123';
@@ -469,6 +471,19 @@ async function main() {
     }
 
     const verifiedCount = PROVIDERS.filter((p) => p.status === VerificationStatus.Verified).length;
+    // Demo profile photos for the seed accounts (seed-assets/avatars, Unsplash
+    // License — see SOURCES.md). Stored through the same path as user uploads.
+    const usersService = app.get(UsersService);
+    let photoCount = 0;
+    for (const email of seedEmails) {
+      const file = new URL(`../../seed-assets/avatars/${email.split('@')[0]}.jpg`, import.meta.url);
+      if (!existsSync(file)) continue;
+      const dataUrl = `data:image/jpeg;base64,${readFileSync(file).toString('base64')}`;
+      await usersService.setAvatar(String(stableId(email)), dataUrl);
+      photoCount++;
+    }
+    console.log(`Attached ${photoCount} demo profile photos.`);
+
     console.log(
       `Seeded ${PROVIDERS.length} providers (${verifiedCount} verified, ${PROVIDERS.length - verifiedCount} pending), ` +
         `${CUSTOMERS.length} customers, 1 admin (${ADMIN.email}), ${completedCount} completed bookings with reviews, ` +

@@ -22,6 +22,9 @@ export interface Provider {
   verificationStatus: VerificationStatus;
   verificationChecks: VerificationChecks;
   isAvailable: boolean;
+  avatarUrl: string | null;
+  // Next bookable arrival window from the provider's schedule (Sri Lanka time), or null.
+  nextSlot: { date: string; timeSlot: string } | null;
 }
 
 export interface ProviderServiceItem {
@@ -67,6 +70,7 @@ export interface Availability {
 export interface ProviderAccount {
   id: string;
   name: string;
+  avatarUrl: string | null;
   email: string;
   phone: string;
   category: ServiceCategory;

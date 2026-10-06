@@ -15,7 +15,7 @@ export interface ProviderJob {
   problemDescription: string;
   pricing: { servicePrice: number; visitFee: number; total: number; currency: string };
   paymentMethod: 'cash_on_service';
-  customer: { name: string; phone?: string };
+  customer: { name: string; phone?: string; avatarUrl: string | null };
   location: { city: string; street?: string; landmark?: string };
   contactShared: boolean;
   cancellationReason?: string;
