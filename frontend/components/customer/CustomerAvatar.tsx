@@ -17,7 +17,28 @@ type Props = {
   imageUrl?: string;
 };
 
-// Avatar: a real image when one is passed, otherwise clean initials.
+const BUNDLED_AVATARS: Record<string, any> = {
+  'sunil fernando': require('../../assets/images/avatars/sunil.fernando.jpg'),
+  'kasun perera': require('../../assets/images/avatars/kasun.perera.jpg'),
+  'dinesh silva': require('../../assets/images/avatars/dinesh.silva.jpg'),
+  'ahamed rizvi': require('../../assets/images/avatars/ahamed.rizvi.jpg'),
+  'kumari perera': require('../../assets/images/avatars/kumari.perera.jpg'),
+  'lakshmi sivakumar': require('../../assets/images/avatars/lakshmi.sivakumar.jpg'),
+  'malini gunawardena': require('../../assets/images/avatars/malini.gunawardena.jpg'),
+  'nuwan jayasinghe': require('../../assets/images/avatars/nuwan.jayasinghe.jpg'),
+  'priya navaratnam': require('../../assets/images/avatars/priya.navaratnam.jpg'),
+  'ruwan bandara': require('../../assets/images/avatars/ruwan.bandara.jpg'),
+  'tharindu wickramasinghe': require('../../assets/images/avatars/tharindu.wickramasinghe.jpg'),
+  'nadeesha perera': require('../../assets/images/avatars/kumari.perera.jpg'),
+};
+
+function getBundledAvatar(name?: string) {
+  if (!name) return undefined;
+  const key = name.trim().toLowerCase();
+  return BUNDLED_AVATARS[key];
+}
+
+// Avatar: displays remote image, bundled persona avatar, or clean initials fallback.
 export default function CustomerAvatar({
   name,
   size = 56,
@@ -31,9 +52,11 @@ export default function CustomerAvatar({
 }: Props) {
   const r = shape === 'circle' ? size / 2 : Math.round(size * 0.22);
   const badge = Math.max(18, Math.round(size * 0.34));
-  // Only a real image URL is shown; otherwise initials (no stock photos of strangers).
+  const bundledSource = getBundledAvatar(name);
   const resolvedUrl = imageUrl;
   const [imageError, setImageError] = useState(false);
+
+  const imageSource = resolvedUrl && !imageError ? { uri: resolvedUrl } : bundledSource;
 
   return (
     <View style={{ width: size, height: size }} importantForAccessibility="no" accessibilityElementsHidden>
@@ -44,9 +67,9 @@ export default function CustomerAvatar({
           ring && styles.ring,
         ]}
       >
-        {resolvedUrl && !imageError ? (
+        {imageSource ? (
           <Image
-            source={{ uri: resolvedUrl }}
+            source={imageSource}
             style={{ width: size, height: size, borderRadius: r }}
             resizeMode="cover"
             onError={() => setImageError(true)}

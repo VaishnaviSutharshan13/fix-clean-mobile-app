@@ -36,11 +36,11 @@ function Banner({ booking }: { booking?: Booking }) {
   const onPress = booking
     ? () => router.push({ pathname: '/customer/track-booking', params: { id: booking.id } })
     : () => router.push('/customer/provider-list');
-  const label = booking ? `ACTIVE BOOKING • ${STATUS_META[booking.status].label.toUpperCase()}` : 'VERIFIED PROS';
-  const title = booking ? booking.service.name : 'Home Repairs & Cleaning';
+  const label = booking ? `ACTIVE BOOKING • ${STATUS_META[booking.status].label.toUpperCase()}` : '⚡ FAST DISPATCH';
+  const title = booking ? booking.service.name : 'Monsoon Home Care';
   const sub = booking
     ? `${booking.provider.name} • ${formatBookingDate(booking.scheduledDate, false)}, ${formatTimeSlot(booking.timeSlot).split(' – ')[0]}`
-    : 'Book trusted plumbers, electricians & cleaners';
+    : 'Reliable leak & wiring fixes in Jaffna';
   return (
     <Pressable
       onPress={onPress}
@@ -132,21 +132,16 @@ export default function CustomerHome() {
         <View style={styles.greetingText}>
           <View style={styles.greetingNameRow}>
             <Text style={styles.greeting} numberOfLines={1}>
-              {getGreeting()}, {user?.name ?? ''}
+              {getGreeting()}, {user?.name ?? 'Nadeesha Perera'}
             </Text>
+            <Ionicons name="chevron-down" size={15} color={cc.text} />
           </View>
           <View style={styles.greetingSubRow}>
             <Ionicons name="location-sharp" size={15} color={cc.amberBright} />
-            {lastCity ? (
-              <>
-                <Text style={styles.greetingLocation}>{lastCity}</Text>
-                <View style={styles.verifiedAreaPill}>
-                  <Text style={styles.verifiedAreaText}>Last booking</Text>
-                </View>
-              </>
-            ) : (
-              <Text style={styles.greetingLocation}>What do you need help with today?</Text>
-            )}
+            <Text style={styles.greetingLocation}>{lastCity ? `${lastCity} Region` : 'Jaffna Region'}</Text>
+            <View style={styles.verifiedAreaPill}>
+              <Text style={styles.verifiedAreaText}>Verified Area</Text>
+            </View>
           </View>
         </View>
         <CustomerAvatar
@@ -244,8 +239,8 @@ export default function CustomerHome() {
           upper
           right={
             <View style={styles.regionPill}>
-              <Ionicons name="star" size={12} color={cc.primary} />
-              <Text style={styles.regionPillText}>Top rated</Text>
+              <Ionicons name="arrow-up-outline" size={12} color={cc.primary} style={{ transform: [{ rotate: '45deg' }] }} />
+              <Text style={styles.regionPillText}>Jaffna Region</Text>
             </View>
           }
         />
@@ -285,11 +280,11 @@ export default function CustomerHome() {
         )}
       </View>
 
-      {/* Trust strip: statements the app enforces */}
-      <View style={styles.trust} accessible accessibilityLabel="Admin verified providers, transparent rates, cash on service">
+      {/* Trust strip matching Figma homepage.jpeg */}
+      <View style={styles.trust} accessible accessibilityLabel="LK Police Checked, Transparent Rates, Jaffna Support">
         <View style={styles.trustItem}>
           <Ionicons name="shield-checkmark-outline" size={18} color={cc.success} />
-          <Text style={styles.trustText}>Admin{'\n'}Verified</Text>
+          <Text style={styles.trustText}>LK Police{'\n'}Checked</Text>
         </View>
         <View style={styles.trustDivider} />
         <View style={styles.trustItem}>
@@ -299,7 +294,7 @@ export default function CustomerHome() {
         <View style={styles.trustDivider} />
         <View style={styles.trustItem}>
           <Ionicons name="headset-outline" size={18} color={cc.amber} />
-          <Text style={styles.trustText}>Cash on{'\n'}Service</Text>
+          <Text style={styles.trustText}>Jaffna{'\n'}Support</Text>
         </View>
       </View>
     </CustomerScreen>

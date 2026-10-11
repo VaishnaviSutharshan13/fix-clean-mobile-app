@@ -40,3 +40,4 @@ yarn-error.*
 .DS_Store
 .vscode/
 .idea/
+.mongo_data/

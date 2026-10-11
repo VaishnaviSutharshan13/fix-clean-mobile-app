@@ -8,6 +8,7 @@ import CustomerAvatar from '../../components/customer/CustomerAvatar';
 import CustomerButton from '../../components/customer/CustomerButton';
 import { CustomerHeader } from '../../components/customer/CustomerHeader';
 import { CCard } from '../../components/customer/CustomerPrimitives';
+import CustomerMapCard from '../../components/customer/CustomerMapCard';
 import CustomerScreen from '../../components/customer/CustomerScreen';
 import { CATEGORY_TONE, cc, cf, cr } from '../../constants/customerTheme';
 import { useAsync } from '../../hooks/useAsync';
@@ -157,6 +158,9 @@ export default function BookingConfirmation() {
             {booking.address.landmark ? <Text style={styles.detailSub}>Landmark: {booking.address.landmark}</Text> : null}
           </View>
         </View>
+
+        {/* Map preview matching Figma booking_image.jpeg */}
+        <CustomerMapCard variant="confirmation" etaMinutes={14} />
 
         <View style={styles.priceSection}>
           <View style={styles.priceRow}>

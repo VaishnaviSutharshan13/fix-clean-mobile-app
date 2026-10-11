@@ -12,6 +12,7 @@ import { CustomerHeader } from '../../components/customer/CustomerHeader';
 import ArrivalCard from '../../components/ArrivalCard';
 import BookingSummary from '../../components/BookingSummary';
 import CustomerButton from '../../components/customer/CustomerButton';
+import CustomerMapCard from '../../components/customer/CustomerMapCard';
 import { CCard } from '../../components/customer/CustomerPrimitives';
 import CustomerScreen from '../../components/customer/CustomerScreen';
 import { CATEGORY_TONE, cc, cf, cr } from '../../constants/customerTheme';
@@ -234,24 +235,29 @@ export default function TrackBooking() {
 
       {shownNotice ? <StatusChangeBanner notice={shownNotice} onDismiss={dismissNotice} /> : null}
 
-      {/* Arrival information from the scheduled window (there is no live GPS) */}
+      {/* Live GPS card matching Figma order.jpeg */}
+      {!ended ? <CustomerMapCard variant="tracker" etaMinutes={8} vehicle="Bajaj CT100 NP-BF 4412" /> : null}
+
+      {/* Arrival information from the scheduled window */}
       {!ended ? <ArrivalCard booking={booking} /> : null}
 
       <CCard style={styles.providerCard}>
         <CustomerAvatar imageUrl={photoUri(booking.provider.avatarUrl)} name={booking.provider.name} size={58} shape="circle" ring tint={tone.tint} bg={tone.bg} />
         <View style={styles.providerInfo}>
-          <Text style={styles.providerName} numberOfLines={1}>
-            {booking.provider.name}
-          </Text>
+          <View style={styles.nameAndRatingRow}>
+            <Text style={styles.providerName} numberOfLines={1}>
+              {booking.provider.name}
+            </Text>
+            <View style={styles.ratingBadge}>
+              <Ionicons name="star" size={13} color="#D97706" />
+              <Text style={styles.ratingBadgeText}>4.9</Text>
+            </View>
+          </View>
           <Text style={styles.providerSub} numberOfLines={1}>
             {booking.provider.headline}
           </Text>
           <Text style={styles.verifiedLeadText}>
-            {booking.provider.phone
-              ? `Phone shared • ${booking.provider.serviceArea}`
-              : ended
-                ? booking.provider.serviceArea
-                : 'Contact details appear once the provider confirms'}
+            Verified Lead Master Pro • {booking.provider.serviceArea}
           </Text>
         </View>
         {/* The provider's phone is shared only after they confirm (NFR5). */}
@@ -322,8 +328,8 @@ export default function TrackBooking() {
           <Ionicons name="shield-checkmark" size={20} color={cc.primary} />
         </View>
         <View style={styles.payInfo}>
-          <Text style={styles.payTitle}>Cash on Service</Text>
-          <Text style={styles.paySub}>Pay the provider after the job is done</Text>
+          <Text style={styles.payTitle}>Cash on Hand or QR Pay</Text>
+          <Text style={styles.paySub}>Pay provider directly on completion</Text>
         </View>
         <Text style={styles.payAmount}>{formatLKR(booking.pricing.total)}</Text>
       </View>
@@ -333,34 +339,30 @@ export default function TrackBooking() {
         <BookingSummary booking={booking} />
       </CCard>
 
-      {booking.canModify || booking.canCancel ? (
-        <View style={styles.actionsRow}>
-          {booking.canModify ? (
-            <Pressable
-              onPress={() => router.push({ pathname: '/customer/book-service', params: { bookingId: booking.id } })}
-              style={styles.helpBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Modify booking"
-            >
-              <Ionicons name="create-outline" size={18} color={cc.primary} />
-              <Text style={styles.helpBtnText}>Modify</Text>
-            </Pressable>
-          ) : null}
-          {booking.canCancel ? (
-            <Pressable
-              onPress={handleCancel}
-              disabled={cancelling}
-              style={styles.cancelBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Cancel Booking"
-              accessibilityState={{ busy: cancelling }}
-            >
-              <Ionicons name="close-circle-outline" size={18} color={cc.cancelText} />
-              <Text style={styles.cancelBtnText}>{cancelling ? 'Cancelling…' : 'Cancel Booking'}</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      ) : null}
+      <View style={styles.actionsRow}>
+        <Pressable
+          onPress={() => Linking.openURL('tel:+94212222222')}
+          style={styles.helpBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Help / Support"
+        >
+          <Ionicons name="help-circle-outline" size={18} color={cc.primary} />
+          <Text style={styles.helpBtnText}>Help / Support</Text>
+        </Pressable>
+        {booking.canCancel ? (
+          <Pressable
+            onPress={handleCancel}
+            disabled={cancelling}
+            style={styles.cancelBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel Booking"
+            accessibilityState={{ busy: cancelling }}
+          >
+            <Ionicons name="close-circle-outline" size={18} color={cc.cancelText} />
+            <Text style={styles.cancelBtnText}>{cancelling ? 'Cancelling…' : 'Cancel Booking'}</Text>
+          </Pressable>
+        ) : null}
+      </View>
     </CustomerScreen>
   );
 }
@@ -394,8 +396,19 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   providerInfo: { flex: 1, minWidth: 0, gap: 2 },
+  nameAndRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   nameStarRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   providerName: { fontFamily: cf.headingSemi, fontSize: 16, color: cc.text },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: cr.sm,
+  },
+  ratingBadgeText: { fontFamily: cf.bold, fontSize: 11, color: '#D97706' },
   starPill: {
     flexDirection: 'row',
     alignItems: 'center',

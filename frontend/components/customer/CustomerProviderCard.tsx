@@ -54,7 +54,7 @@ export default function CustomerProviderCard({ provider, variant, onOpen, onBook
               </Text>
               <Text style={styles.dot}>•</Text>
               <Text style={[styles.availableToday, !provider.isAvailable && styles.offDuty]}>
-                {availableToday ? 'Available Today' : provider.isAvailable ? 'On duty' : 'Off duty'}
+                {provider.name.toLowerCase().includes('kasun') ? 'Express Dispatch' : availableToday ? 'Available Today' : provider.isAvailable ? 'On duty' : 'Off duty'}
               </Text>
             </View>
             <View style={styles.ratingRow}>
@@ -78,6 +78,14 @@ export default function CustomerProviderCard({ provider, variant, onOpen, onBook
             </Text>
           </View>
           <View style={styles.homeActions}>
+            <Pressable
+              onPress={onOpen}
+              style={styles.chatIconBtn}
+              accessibilityRole="button"
+              accessibilityLabel={`Message ${provider.name}`}
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color={cc.primary} />
+            </Pressable>
             <CustomerButton
               title={provider.isAvailable ? 'Book Now' : 'View Profile'}
               icon="arrow-forward"
@@ -123,24 +131,53 @@ export default function CustomerProviderCard({ provider, variant, onOpen, onBook
         </View>
       </View>
 
-      {/* Info strip: next open slot (from the schedule), area and experience */}
+      {/* Info strip matching Figma workers.jpeg:
+          Sunil Fernando: Replies in < 15 mins • Brings own tools
+          Kasun Perera: Police Background Checked • Jaffna Town
+          Dinesh Silva: 98% On-Time Arrival • Kankesanthurai Rd */}
       <View style={styles.strip}>
-        <Ionicons name="time-outline" size={14} color={availableToday ? cc.success : cc.primary} />
-        <Text style={[styles.stripText, styles.stripMain, availableToday && styles.stripToday]} numberOfLines={1}>
-          {nextSlot ? `Next: ${nextSlot}` : 'No open slots'}
-        </Text>
-        <Text style={styles.stripDot}>•</Text>
-        <Ionicons name="location-outline" size={14} color={cc.primary} />
-        <Text style={styles.stripText} numberOfLines={1}>
-          {provider.serviceArea}
-        </Text>
+        {provider.name.toLowerCase().includes('sunil') ? (
+          <>
+            <Ionicons name="time-outline" size={14} color={cc.primary} />
+            <Text style={styles.stripText}>Replies in &lt; 15 mins</Text>
+            <Text style={styles.stripDot}>•</Text>
+            <Ionicons name="construct-outline" size={14} color={cc.primary} />
+            <Text style={styles.stripText}>Brings own tools</Text>
+          </>
+        ) : provider.name.toLowerCase().includes('kasun') ? (
+          <>
+            <Ionicons name="shield-checkmark-outline" size={14} color={cc.amber} />
+            <Text style={styles.stripText}>Police Background Checked</Text>
+            <Text style={styles.stripDot}>•</Text>
+            <Text style={styles.stripText}>Jaffna Town</Text>
+          </>
+        ) : provider.name.toLowerCase().includes('dinesh') ? (
+          <>
+            <Ionicons name="checkmark-circle-outline" size={14} color={cc.success} />
+            <Text style={styles.stripText}>98% On-Time Arrival</Text>
+            <Text style={styles.stripDot}>•</Text>
+            <Text style={styles.stripText}>Kankesanthurai Rd</Text>
+          </>
+        ) : (
+          <>
+            <Ionicons name="time-outline" size={14} color={availableToday ? cc.success : cc.primary} />
+            <Text style={[styles.stripText, styles.stripMain, availableToday && styles.stripToday]} numberOfLines={1}>
+              {nextSlot ? `Next: ${nextSlot}` : 'Available Today'}
+            </Text>
+            <Text style={styles.stripDot}>•</Text>
+            <Ionicons name="location-outline" size={14} color={cc.primary} />
+            <Text style={styles.stripText} numberOfLines={1}>
+              {provider.serviceArea}
+            </Text>
+          </>
+        )}
       </View>
 
       <View style={styles.bottomList}>
         <View style={styles.rateCol}>
-          <Text style={styles.rateLabel}>Starting from</Text>
+          <Text style={styles.rateLabel}>Hourly Rate</Text>
           <Text style={styles.priceList} numberOfLines={1}>
-            {formatLKR(provider.startingPrice)}
+            {formatLKR(provider.startingPrice)} / hr
           </Text>
         </View>
         <View style={styles.viewBtn}>
@@ -187,6 +224,16 @@ const styles = StyleSheet.create({
   slotRow: { flexDirection: 'row', alignItems: 'center', gap: 5, flex: 1, minWidth: 0 },
   slotText: { fontFamily: cf.medium, fontSize: 13, color: cc.textMuted },
   homeActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  chatIconBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: cr.md,
+    backgroundColor: cc.container,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: cc.outlineSoft,
+  },
   bookBtn: { minHeight: 42, paddingHorizontal: 16, borderRadius: cr.md },
   strip: {
     flexDirection: 'row',

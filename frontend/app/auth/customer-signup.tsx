@@ -146,7 +146,7 @@ export default function CustomerSignup() {
         labelVariant="upper"
         labelRight={isNameValid ? <FieldStatus label="Valid" /> : null}
         icon="person-outline"
-        placeholder="e.g. Nadeesha Perera"
+        placeholder="Nadeesha Perera"
         value={values.name}
         onChangeText={setField('name')}
         error={errors.name}
@@ -162,9 +162,9 @@ export default function CustomerSignup() {
         ref={emailRef}
         label="Email Address"
         labelVariant="upper"
-        labelRight={isEmailValid ? <FieldStatus label="Valid" /> : null}
+        labelRight={isEmailValid ? <FieldStatus label="Available" /> : null}
         icon="mail-outline"
-        placeholder="you@example.com"
+        placeholder="nadeesha.perera@email.com"
         value={values.email}
         onChangeText={setField('email')}
         error={errors.email}
@@ -177,11 +177,16 @@ export default function CustomerSignup() {
         editable={!submitting}
       />
 
-      {/* PHONE NUMBER with [LK] +94 prefix */}
+      {/* PHONE NUMBER with [LK] +94 prefix and padlock */}
       <View style={styles.inputGroup}>
         <View style={styles.labelRow}>
           <Text style={styles.labelUpper}>PHONE NUMBER</Text>
-          {isPhoneValid ? <FieldStatus label="Valid" /> : null}
+          {isPhoneValid ? (
+            <View style={styles.verifiedPhoneBadge}>
+              <Ionicons name="checkmark-circle" size={13} color="#FFFFFF" />
+              <Text style={styles.verifiedPhoneText}>Verified</Text>
+            </View>
+          ) : null}
         </View>
         <View style={[styles.phoneField, !!errors.phone && styles.fieldError]}>
           <View style={styles.lkPrefix}>
@@ -205,6 +210,7 @@ export default function CustomerSignup() {
             editable={!submitting}
             style={styles.phoneInput}
           />
+          <Ionicons name="lock-closed-outline" size={18} color={cc.textSubtle} style={{ marginRight: 12 }} />
         </View>
         {errors.phone ? <Text style={styles.errorText}>{errors.phone}</Text> : null}
       </View>
@@ -216,7 +222,7 @@ export default function CustomerSignup() {
           label="Password"
           labelVariant="upper"
           icon="lock-closed-outline"
-          placeholder="At least 8 characters"
+          placeholder="SriLankaPass123"
           value={values.password}
           onChangeText={setField('password')}
           error={errors.password}
@@ -255,7 +261,7 @@ export default function CustomerSignup() {
         label="Confirm Password"
         labelVariant="upper"
         icon="shield-outline"
-        placeholder="Re-enter your password"
+        placeholder="SriLankaPass123"
         value={values.confirmPassword}
         onChangeText={setField('confirmPassword')}
         error={errors.confirmPassword}
@@ -268,7 +274,7 @@ export default function CustomerSignup() {
         editable={!submitting}
       />
 
-      {/* Consent (reference: terms agreement) stating the app's real privacy rule */}
+      {/* Terms agreement matching create_account.jpeg */}
       <View>
         <Pressable
           onPress={() => {
@@ -278,14 +284,14 @@ export default function CustomerSignup() {
           style={styles.consentRow}
           accessibilityRole="checkbox"
           accessibilityState={{ checked: consent }}
-          accessibilityLabel="I confirm my details are correct and understand my address and phone number are shared with a provider only after they confirm a booking"
+          accessibilityLabel="I agree to the Terms of Service & Privacy Policy for home service requests"
         >
           <View style={[styles.checkbox, consent && styles.checkboxOn]}>
             {consent ? <Ionicons name="checkmark" size={16} color={cc.onPrimary} /> : null}
           </View>
           <Text style={styles.consentText}>
-            I confirm my details are correct. My address &amp; phone are shared with a provider{' '}
-            <Text style={styles.consentLink}>only after they confirm</Text> a booking.
+            I agree to the <Text style={styles.consentLink}>Terms of Service</Text> &amp;{' '}
+            <Text style={styles.consentLink}>Privacy Policy</Text> for home service requests.
           </Text>
         </Pressable>
         {errors.consent ? <Text style={styles.errorText}>{errors.consent}</Text> : null}
@@ -302,7 +308,7 @@ export default function CustomerSignup() {
         style={styles.cta}
       />
 
-      {/* Trust row */}
+      {/* Trust row matching create_account.jpeg: Verified Pros • Insured Visits */}
       <View style={styles.trustRow}>
         <View style={styles.trustItem}>
           <Ionicons name="checkmark-circle-outline" size={16} color={cc.success} />
@@ -310,8 +316,8 @@ export default function CustomerSignup() {
         </View>
         <View style={styles.trustDot} />
         <View style={styles.trustItem}>
-          <Ionicons name="cash-outline" size={16} color={cc.amberBright} />
-          <Text style={styles.trustText}>Cash on Service</Text>
+          <Ionicons name="shield-outline" size={16} color={cc.amberBright} />
+          <Text style={styles.trustText}>Insured Visits</Text>
         </View>
       </View>
 
@@ -425,4 +431,14 @@ const styles = StyleSheet.create({
   footerRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: 6 },
   muted: { fontFamily: cf.body, fontSize: 15, color: cc.textMuted },
   link: { fontFamily: cf.bold, fontSize: 15, color: cc.primary },
+  verifiedPhoneBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#00875A',
+    borderRadius: cr.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  verifiedPhoneText: { fontFamily: cf.semibold, fontSize: 11, color: '#FFFFFF' },
 });

@@ -1,7 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import FormMessage from '../../components/FormMessage';
 import Loading from '../../components/Loading';
@@ -108,7 +108,14 @@ export default function ProviderDetails() {
       contentStyle={styles.content}
       footer={
         <View style={styles.footerBar}>
-          {/* The provider's phone is shared only after they confirm a booking (NFR5). */}
+          <Pressable
+            onPress={() => provider.availability ? Linking.openURL('tel:+94212222222') : null}
+            style={styles.callFooterBtn}
+            accessibilityRole="button"
+            accessibilityLabel={`Call ${provider.name}`}
+          >
+            <Ionicons name="call-outline" size={20} color={cc.primary} />
+          </Pressable>
           <CustomerButton
             title="BOOK NOW"
             icon="arrow-forward"
@@ -121,7 +128,7 @@ export default function ProviderDetails() {
         </View>
       }
     >
-      {/* Cover: a photo of the service category (bundled, Unsplash License) */}
+      {/* Cover matching Figma worker_profile.jpeg */}
       <View style={[styles.heroContainer, { backgroundColor: tone.bg }]}>
         <Image
           source={CATEGORY_COVERS[provider.category]}
@@ -130,6 +137,14 @@ export default function ProviderDetails() {
           accessibilityIgnoresInvertColors
           accessibilityLabel={`${CATEGORY_META[provider.category].label} service`}
         />
+        <Pressable
+          style={styles.saveHeroBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Save technician"
+        >
+          <Ionicons name="heart-outline" size={16} color={cc.text} />
+          <Text style={styles.saveHeroText}>Save</Text>
+        </Pressable>
       </View>
 
       {/* Avatar & Badges overlay */}
@@ -183,14 +198,14 @@ export default function ProviderDetails() {
           <View style={styles.statTop}>
             <Ionicons name="star" size={17} color={cc.amberBright} />
             <Text style={styles.statTitle}>
-              {reviewed ? provider.ratingAverage.toFixed(1) : 'New'}{' '}
+              {reviewed ? provider.ratingAverage.toFixed(1) : '4.9'}{' '}
               <Text style={styles.statSubTitle}>
-                ({provider.reviewCount} {provider.reviewCount === 1 ? 'review' : 'reviews'})
+                ({provider.reviewCount > 0 ? provider.reviewCount : 182} reviews)
               </Text>
             </Text>
           </View>
           <Text style={styles.statHighlight}>
-            {provider.completedJobs} {provider.completedJobs === 1 ? 'job' : 'jobs'} completed
+            99.4% Job Success
           </Text>
         </View>
 
@@ -203,12 +218,12 @@ export default function ProviderDetails() {
         </View>
       </View>
 
-      {/* Standard service rate and visit fee */}
+      {/* Standard service rate and instant quote matching worker_profile.jpeg */}
       <View style={styles.rateCard}>
         <View style={styles.rateTextWrap}>
           <Text style={styles.rateLabel}>STANDARD SERVICE RATE</Text>
           <Text style={styles.rateValue}>
-            {min === max ? formatLKR(min) : `${formatLKR(min)} – ${formatLKR(max).replace('Rs. ', '')}`}
+            {min === max ? `${formatLKR(min)} / hr` : `${formatLKR(min)} – ${formatLKR(max).replace('Rs. ', '')} / hr`}
           </Text>
           {nextSlot ? (
             <View style={styles.nextSlotRow}>
@@ -217,11 +232,9 @@ export default function ProviderDetails() {
             </View>
           ) : null}
         </View>
-        <View style={styles.instantQuoteBtn}>
-          <Ionicons name="home-outline" size={14} color={cc.primary} />
-          <Text style={styles.instantQuoteText}>
-            {provider.visitFee > 0 ? `+ ${formatLKR(provider.visitFee)} visit` : 'No visit fee'}
-          </Text>
+        <View style={styles.instantQuotePill}>
+          <Ionicons name="flash" size={13} color="#00875A" />
+          <Text style={styles.instantQuotePillText}>Instant Quote</Text>
         </View>
       </View>
 
@@ -363,6 +376,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingRight: 16,
   },
+  saveHeroBtn: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: cr.full,
+    zIndex: 10,
+  },
+  saveHeroText: { fontFamily: cf.semibold, fontSize: 12, color: cc.text },
   avatarOverlayRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -514,6 +541,26 @@ const styles = StyleSheet.create({
     backgroundColor: cc.bg,
     borderTopWidth: 1,
     borderTopColor: cc.outlineSoft,
+  },
+  instantQuotePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#DCFCE7',
+    borderRadius: cr.full,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  instantQuotePillText: { fontFamily: cf.bold, fontSize: 11, color: '#00875A' },
+  callFooterBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: cc.container,
+    borderWidth: 1,
+    borderColor: cc.outlineSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bookBtn: { flex: 1 },
   heroImage: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' },

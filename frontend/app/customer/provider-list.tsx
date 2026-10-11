@@ -102,7 +102,7 @@ export default function ProviderList() {
           <TextInput
             value={searchInput}
             onChangeText={setSearchInput}
-            placeholder="Search name, service or area"
+            placeholder={category ? `Search ${CATEGORY_META[category].label} in Jaffna` : 'Search Plumbers in Jaffna'}
             placeholderTextColor={cc.textMuted}
             style={styles.searchInput}
             returnKeyType="search"
@@ -146,7 +146,11 @@ export default function ProviderList() {
         </Pressable>
       ) : null}
 
-      {/* Filter chips: location (service area), available today, service categories */}
+      {/* Filter chips matching Figma workers.jpeg:
+          1. 📍 Jaffna Central (5 km)
+          2. Available Today
+          3. Emergency
+          4. Service categories (Plumbing, Electrical, Cleaning) */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -158,10 +162,10 @@ export default function ProviderList() {
           style={[styles.chip, styles.chipDarkSelected]}
           accessibilityRole="button"
           accessibilityState={{ expanded: areaOpen }}
-          accessibilityLabel={`Location: ${area ?? 'all areas'}. Change location`}
+          accessibilityLabel={`Location: ${area ?? 'Jaffna Central (5 km)'}. Change location`}
         >
           <Ionicons name="location" size={14} color={cc.onPrimary} />
-          <Text style={[styles.chipText, styles.chipTextWhite]}>{area ?? 'All areas'}</Text>
+          <Text style={[styles.chipText, styles.chipTextWhite]}>{area ?? 'Jaffna Central (5 km)'}</Text>
           <Ionicons name={areaOpen ? 'chevron-up' : 'chevron-down'} size={13} color={cc.onPrimary} />
         </Pressable>
 
@@ -173,6 +177,16 @@ export default function ProviderList() {
           accessibilityLabel="Available today"
         >
           <Text style={[styles.chipText, todayOnly && styles.chipTextSelected]}>Available Today</Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => setOnDutyOnly((v) => !v)}
+          style={[styles.chip, onDutyOnly && styles.chipSelected]}
+          accessibilityRole="button"
+          accessibilityState={{ selected: onDutyOnly }}
+          accessibilityLabel="Emergency / On duty"
+        >
+          <Text style={[styles.chipText, onDutyOnly && styles.chipTextSelected]}>Emergency</Text>
         </Pressable>
 
         <Pressable
@@ -296,15 +310,15 @@ export default function ProviderList() {
         />
       )}
 
-      {/* Trust card: statements the app enforces */}
+      {/* Trust card matching Figma workers.jpeg: Fix & Clean Guarantee */}
       <View style={styles.guaranteeCard}>
         <View style={styles.guaranteeIcon}>
           <Ionicons name="thumbs-up" size={24} color={cc.amber} />
         </View>
         <View style={styles.guaranteeTextWrap}>
-          <Text style={styles.guaranteeTitle}>Fix &amp; Clean Promise</Text>
+          <Text style={styles.guaranteeTitle}>Fix &amp; Clean Guarantee</Text>
           <Text style={styles.guaranteeMessage}>
-            Every provider is verified by our admin team before they can be booked, and you pay in cash only after the job.
+            Every booking is protected by free re-work insurance &amp; verified background security.
           </Text>
         </View>
       </View>

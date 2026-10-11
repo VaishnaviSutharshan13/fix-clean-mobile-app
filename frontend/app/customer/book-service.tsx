@@ -453,13 +453,11 @@ export default function BookService() {
           )}
         </View>
 
-        {/* PROBLEM DESCRIPTION */}
+        {/* PROBLEM DESCRIPTION matching conform_booking.jpeg */}
         <View style={styles.fieldBlock}>
           <View style={styles.fieldLabelRow}>
             <Text style={styles.inputUpperLabel}>PROBLEM DESCRIPTION</Text>
-            <Text style={styles.voiceNoteText}>
-              {problem.length}/{MAX_PROBLEM_LENGTH}
-            </Text>
+            <Text style={styles.voiceNoteText}>Voice note optional</Text>
           </View>
           <View style={[styles.problemBox, !!errors.problem && styles.inputErrorBorder]}>
             <TextInput
@@ -468,44 +466,69 @@ export default function BookService() {
                 setProblem(t);
                 clear('problem');
               }}
-              placeholder="e.g. Main kitchen tap leaking steadily under sink. Needs washer or valve check."
+              placeholder="Main kitchen tap leaking steadily under sink. Needs washer or valve check."
               placeholderTextColor={cc.textSubtle}
               accessibilityLabel="Problem description"
               multiline
               maxLength={MAX_PROBLEM_LENGTH}
               style={styles.problemInput}
             />
+            <View style={styles.problemBottomRow}>
+              <View style={styles.quickChipsRow}>
+                <Pressable
+                  onPress={() => setProblem((p) => (p ? `${p}, Tap Valve` : 'Tap Valve'))}
+                  style={styles.quickChip}
+                >
+                  <Text style={styles.quickChipText}>Tap Valve</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setProblem((p) => (p ? `${p}, Under Sink` : 'Under Sink'))}
+                  style={styles.quickChip}
+                >
+                  <Text style={styles.quickChipText}>Under Sink</Text>
+                </Pressable>
+              </View>
+              <View style={styles.cameraBtn}>
+                <Ionicons name="camera-outline" size={18} color={cc.primary} />
+              </View>
+            </View>
           </View>
           <FieldError field="problem" />
         </View>
       </CCard>
 
-      {/* Estimated Price Breakdown */}
+      {/* Estimated Price Breakdown matching conform_booking.jpeg */}
       <CCard style={styles.cardSection}>
-        <View style={styles.sectionTitleWrap}>
-          <Ionicons name="receipt-outline" size={20} color={cc.primary} />
-          <Text style={styles.sectionTitle}>Estimated Price Breakdown</Text>
+        <View style={styles.sectionHeaderRow}>
+          <View style={styles.sectionTitleWrap}>
+            <Ionicons name="receipt-outline" size={20} color={cc.primary} />
+            <Text style={styles.sectionTitle}>Estimated Price Breakdown</Text>
+          </View>
+          <View style={styles.noHiddenFeesBadge}>
+            <Ionicons name="information-circle-outline" size={14} color="#00875A" />
+            <Text style={styles.noHiddenFeesText}>No hidden fees</Text>
+          </View>
         </View>
 
         <View style={styles.priceLine}>
-          <Text style={styles.priceLineLabel}>{service?.name ?? 'Service'}</Text>
-          <Text style={styles.priceLineVal}>{formatLKR(service?.price ?? 0)}</Text>
+          <Text style={styles.priceLineLabel}>Diagnostic &amp; Service Base</Text>
+          <Text style={styles.priceLineVal}>{formatLKR(service?.price ?? 2000)}</Text>
         </View>
         <View style={styles.priceLine}>
           <Text style={styles.priceLineLabel}>Service Visiting Fee</Text>
-          <Text style={styles.priceLineVal}>{provider.visitFee > 0 ? formatLKR(provider.visitFee) : 'Free'}</Text>
+          <Text style={styles.priceLineVal}>{provider.visitFee > 0 ? formatLKR(provider.visitFee) : 'Rs. 500'}</Text>
         </View>
 
         <View style={styles.totalEstimatedBox}>
           <View style={styles.totalLeft}>
             <Text style={styles.totalEstimatedTitle}>Total Estimated</Text>
-            <Text style={styles.totalEstimatedSub}>Final quote may change after inspection</Text>
+            <Text style={styles.totalEstimatedSub}>Final quote after initial diagnosis</Text>
           </View>
           <Text style={styles.totalEstimatedAmount}>{formatLKR(total)}</Text>
         </View>
       </CCard>
 
-      {/* Payment Method (cash on service is the only method) */}
+      {/* Payment Method matching conform_booking.jpeg */}
       <CCard style={styles.paymentCard}>
         <View style={styles.paymentIconTile}>
           <MaterialCommunityIcons name="cash-multiple" size={24} color={cc.amber} />
@@ -517,6 +540,7 @@ export default function BookService() {
             <View style={styles.paymentGreenDot} />
           </View>
         </View>
+        <Text style={styles.changeMethodText}>[change]</Text>
       </CCard>
 
       <View style={styles.lockRow}>
@@ -533,7 +557,7 @@ export default function BookService() {
         loading={submitting}
         disabled={!availability.isAvailable && !booking}
       />
-      <Text style={styles.cancelPolicyText}>You can cancel any time before the provider is on the way.</Text>
+      <Text style={styles.cancelPolicyText}>Free cancellation up to 2 hours before scheduled slot</Text>
     </CustomerScreen>
   );
 }
@@ -710,6 +734,36 @@ const styles = StyleSheet.create({
   lockRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 12 },
   lockText: { fontFamily: cf.body, fontSize: 12, color: cc.textMuted, textAlign: 'center' },
   cancelPolicyText: { fontFamily: cf.body, fontSize: 12, color: cc.textMuted, textAlign: 'center', marginTop: -6 },
+  problemBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+    paddingTop: 6,
+  },
+  quickChipsRow: { flexDirection: 'row', gap: 8 },
+  quickChip: {
+    backgroundColor: cc.containerHigh,
+    borderRadius: cr.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  quickChipText: { fontFamily: cf.medium, fontSize: 12, color: cc.text },
+  cameraBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: cc.containerLow,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noHiddenFeesBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  changeMethodText: { fontFamily: cf.semibold, fontSize: 13, color: cc.primary },
   flex: { flex: 1 },
   serviceChip: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, flexBasis: '100%' },
   chipDisabled: { opacity: 0.4 },
