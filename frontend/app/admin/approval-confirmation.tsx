@@ -281,3 +281,4 @@ const styles = StyleSheet.create({
   resultBody: { fontFamily: af.body, fontSize: 15, lineHeight: 22, color: ac.textMuted, textAlign: 'center' },
   resultReason: { fontFamily: af.body, fontSize: 14, color: ac.text, fontStyle: 'italic', textAlign: 'center' },
 });
+
