@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "FIX & CLEAN CO.",
+    "name": "FIX & CLEAN CO",
     "slug": "fix-clean-co",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -30,6 +30,12 @@
     "scheme": "fixclean",
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ecab1e6f-de7f-4dee-b56d-ebd9c66df8fb"
+      }
     }
   }
 }
