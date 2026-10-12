@@ -17,7 +17,7 @@ function resolveApiBaseUrl(): string {
   }
 
   // Live cloud backend URL fallback for standalone APK builds
-  return 'https://09534513f11fbc.lhr.life';
+  return 'https://fix-clean-mobile-app.onrender.com';
 }
 
 export const config = {
