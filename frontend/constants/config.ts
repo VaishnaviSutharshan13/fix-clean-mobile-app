@@ -16,7 +16,8 @@ function resolveApiBaseUrl(): string {
     return `http://${devHost}:${API_PORT}`;
   }
 
-  return `http://localhost:${API_PORT}`;
+  // Live cloud backend URL fallback for standalone APK builds
+  return 'https://09534513f11fbc.lhr.life';
 }
 
 export const config = {
